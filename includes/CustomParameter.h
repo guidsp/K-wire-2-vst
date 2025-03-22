@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <codecvt>
 #include <cmath>
+#include <execution>
 
 #include "public.sdk/source/vst/vsteditcontroller.h"
 
@@ -42,7 +43,7 @@ struct CustomParameter
 
 	void prepareBuffer() 
 	{
-		memset(buffer, realValue, sizeof(buffer));
+		std::fill_n(buffer, MAX_BUFFER_SIZE, realValue);
 	}
 
 	// Fills the buffer with a ramp from the previous real value
@@ -55,8 +56,14 @@ struct CustomParameter
 		}
 		else
 		{
-			for (int f = 0; f < frames; ++f)
-				buffer[f] = normalisedToReal(std::lerp(normalisedValue, normalised, double(f) / double(frames - 1)));
+			// Unary transform; since I provided only one range (first two arguments), the third argument is the output.
+			// The lambda gets one argument (double& value), which is a reference to an element of buffer.
+			std::transform(std::execution::unseq, buffer, buffer + frames, buffer, [this, normalised, frames](double& value)
+			{
+				const auto index = &value - buffer;
+				double t = double(index) / double(frames - 1);
+				return normalisedToReal(std::lerp(normalisedValue, normalised, t));
+			});
 
 			normalisedValue = normalised;
 			realValue = buffer[frames - 1];

@@ -1,4 +1,7 @@
 #include <windows.h>
+#include <algorithm>
+#include <execution>
+
 #include "Kwire2processor.h"
 #include "Kwire2cids.h"
 
@@ -134,15 +137,19 @@ namespace Kwire2 {
 			{
 				if (auto* paramQueue = data.inputParameterChanges->getParameterData(index))
 				{
-					Vst::ParamValue value;
-					int32 sampleOffset;
+					const Vst::ParamID paramID = paramQueue->getParameterId();
 					const int32 numPoints = paramQueue->getPointCount();
+					CustomParameter* param = &customParameters[paramID];
+					Vst::ParamValue value;
+					int32 sampleOffset;	
 
-					if (paramQueue->getPoint(numPoints - 1, sampleOffset, value) == kResultTrue)
+					for (auto pointIndex = 0; pointIndex < numPoints; ++pointIndex)
 					{
-						const Vst::ParamID paramID = paramQueue->getParameterId();
-						CustomParameter* param = &customParameters[paramID];
-						param->update(value, data.numSamples);
+						if (paramQueue->getPoint(pointIndex, sampleOffset, value) == kResultTrue)
+						{
+							debug(sampleOffset);
+							param->update(value, data.numSamples);
+						}
 					}
 				}
 			}
@@ -156,51 +163,71 @@ namespace Kwire2 {
 
 		if (data.symbolicSampleSize == Vst::kSample64)
 		{
-			const auto size = sizeof(double) * data.numSamples;
-
 			if (data.outputs[0].numChannels == 2)
 			{
-				memcpy(out[0], in[0], size);
+				std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, value[inGainId], (double*)out[0], std::multiplies<double>());
 
 				if (data.inputs[0].numChannels == 2)
-					memcpy(out[1], in[1], size);
+					std::transform(std::execution::unseq, (double*)in[1], (double*)in[1] + data.numSamples, value[inGainId], (double*)out[1], std::multiplies<double>());
 				else
-					memcpy(out[1], in[0], size);
+					std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, value[inGainId], (double*)out[1], std::multiplies<double>());
 			}
 			else
 			{
 				if (data.inputs[0].numChannels == 2)
 				{
-					//out = in1 + in2;
+					std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, (double*)in[1], (double*)out[0], std::plus<double>());
+					std::transform(std::execution::unseq, (double*)out[0], (double*)out[0] + data.numSamples, value[inGainId], (double*)out[0], std::multiplies<double>());
 				}
 				else
 				{
-					memcpy(out[0], in[0], size);
+					std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, value[inGainId], (double*)out[0], std::multiplies<double>());
 				}
 			}
 		}
 		else
 		{
-			const auto size = sizeof(float) * data.numSamples;
-
 			if (data.outputs[0].numChannels == 2)
 			{
-				memcpy(out[0], in[0], size);
+				for (int i = 0; i < data.numSamples; ++i)
+				{
+					static_cast<float*>(out[0])[i] = static_cast<float*>(in[0])[i] * value[inGainId][i];
+					static_cast<float*>(out[1])[i] = static_cast<float*>(in[1])[i] * value[inGainId][i];
+				}
 
-				if (data.inputs[0].numChannels == 2)
-					memcpy(out[1], in[1], size);
-				else
-					memcpy(out[1], in[0], size);
+				//// 2 outs
+				//std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, value[inGainId], (float*)out[0],
+				//	[](float input, double gain) { return input * float(gain); }
+				//);
+
+				//if (data.inputs[0].numChannels == 2)
+				//	// 2 ins
+				//	std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, value[inGainId], (float*)out[1],
+				//		[](float input, double gain) { return input * float(gain); }
+				//	);
+				//else
+				//	// 1 in
+				//	std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, value[inGainId], (float*)out[1],
+				//		[](float input, double gain) { return input * float(gain); }
+				//	);
 			}
 			else
 			{
+				// 1 out
 				if (data.inputs[0].numChannels == 2)
 				{
-					//out = in1 + in2;
+					// 2 ins
+					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, (float*)in[1], (float*)out[0], std::plus<float>());
+					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, value[inGainId], (float*)out[0],
+						[](float input, double gain) { return input * float(gain); }
+					);
 				}
 				else
 				{
-					memcpy(out[0], in[0], size);
+					// 1 in
+					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, value[inGainId], (float*)out[0],
+						[](float input, double gain) { return input * float(gain); }
+					);
 				}
 			}
 		}

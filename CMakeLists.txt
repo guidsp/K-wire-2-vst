@@ -90,7 +90,7 @@ elseif(SMTG_WIN)
         set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
 
         smtg_target_set_debug_executable(${PROJECT_NAME}
-            "$(ProgramW6432)/Steinberg/VST3PluginTestHost/VST3PluginTestHost.exe"
+            "C:/ProgramData/Ableton/Live 12 Suite/Program/Ableton Live 12 Suite.exe"
             "--pluginfolder \"$(OutDir)/\""
         )
     endif()
