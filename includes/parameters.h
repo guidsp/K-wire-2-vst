@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Windows.h>
+
 #include "constants.h"
 #include "CustomParameter.h"
 

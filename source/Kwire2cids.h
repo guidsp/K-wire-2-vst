@@ -7,12 +7,12 @@
 #include "pluginterfaces/base/funknown.h"
 #include "pluginterfaces/vst/vsttypes.h"
 
-namespace MyCompanyName {
+namespace Kwire2 {
 //------------------------------------------------------------------------
-static const Steinberg::FUID kK_wire_2ProcessorUID (0xA718A160, 0xC6415CB1, 0xB5798506, 0x651C3CB1);
-static const Steinberg::FUID kK_wire_2ControllerUID (0x8717E1DC, 0xDC815D02, 0x991A8467, 0x73204D17);
+static const Steinberg::FUID kKwire2ProcessorUID (0xCE387CEA, 0x59975534, 0x8F1237E1, 0x5256B1C7);
+static const Steinberg::FUID kKwire2ControllerUID (0xC799788A, 0xF6B65D28, 0x89415BFD, 0xF5440EF6);
 
-#define K_wire_2VST3Category "Fx"
+#define Kwire2VST3Category "Fx"
 
 //------------------------------------------------------------------------
-} // namespace MyCompanyName
+} // namespace Kwire2

@@ -3,53 +3,92 @@
 #include <functional>
 #include <iomanip>
 #include <codecvt>
+#include <cmath>
 
 #include "public.sdk/source/vst/vsteditcontroller.h"
 
-struct CustomParameter {
-	CustomParameter(short tag, char* name, char* shortName = "", char* paramUnits = "", 
-		double minimum = 0, double maximum = 1, double defaultValue = 1, int stepCount = 0,
+#include "constants.h"
+
+struct CustomParameter 
+{
+	CustomParameter(short id_, const char* title_, const char* shortTitle_ = "", const char* units_ = "",
+		double min_ = 0, double max_ = 1, double defaultPlain_ = 1, int stepCount_ = 0,
 		std::function<double(double normalised)> modifier_ = { [=](double normalised) { return normalised; } },
 		std::function<double(double normalised)> plainToRealFunc_ = { [=](double plain) { return plain; } },
-		
-		int32_t paramFlags = Steinberg::Vst::ParameterInfo::ParameterFlags::kCanAutomate) :
 
-		id(tag),
-		title(name),
-		shortTitle(shortName),
-		units(paramUnits),
-		minPlain(minimum),
-		maxPlain(maximum),
-		defaultPlain(defaultValue),
-		plainValue(defaultValue),
-		steps(stepCount),
+		int32_t flags_ = Steinberg::Vst::ParameterInfo::ParameterFlags::kCanAutomate) :
+
+		id(id_),
+		title(title_),
+		shortTitle(shortTitle_),
+		units(units_),
+		minPlain(min_),
+		maxPlain(max_),
+		defaultPlain(defaultPlain_),
+		range(max_ - min_),
+		plainValue(defaultPlain_),
+		stepCount(stepCount_),
 		modifier(modifier_),
 		plainToRealFunc(plainToRealFunc_),
-		flags(paramFlags)
+		flags(flags_)
 	{
-		assert(steps == 0 || steps == int(maxPlain - minPlain));
+		assert(stepCount == 0 || stepCount == int(maxPlain - minPlain));
 
-		range = maxPlain - minPlain;
+		normalisedValue = (plainValue - minPlain) / range;
+		realValue = normalisedToReal(normalisedValue);
+
+		prepareBuffer();
 	};
 
-	short id;
+	void prepareBuffer() 
+	{
+		memset(buffer, realValue, sizeof(buffer));
+	}
 
-	std::string title,
+	// Fills the buffer with a ramp from the previous real value
+	// to the new real value.
+	inline void update(const double normalised, const int frames) 
+	{
+		if (normalisedValue == normalised)
+		{
+			prepareBuffer();
+		}
+		else
+		{
+			for (int f = 0; f < frames; ++f)
+				buffer[f] = normalisedToReal(std::lerp(normalisedValue, normalised, double(f) / double(frames - 1)));
+
+			normalisedValue = normalised;
+			realValue = buffer[frames - 1];
+
+			std::fill(buffer + frames, buffer + MAX_BUFFER_SIZE, realValue);
+		}
+	}
+
+	inline const double normalisedToReal(double normalised) 
+	{
+		return plainToRealFunc(minPlain + modifier(normalised) * range);
+	}
+
+	const int id;
+
+	const std::string title,
 		shortTitle,
 		units;
 
-	double minPlain,
+	const double minPlain,
 		maxPlain,
 		defaultPlain,
 		range;
 
-	double plainValue,
-		normalisedValue = -1.0,
-		realValue;
+	const int stepCount;
+	const int32_t flags;
 
-	int steps;
+	double plainValue = 0.0,
+		normalisedValue = 0.0,
+		realValue = 0.0;
 
-	int32_t flags;
+	double buffer[MAX_BUFFER_SIZE];
 
 	// Modifies the distribution. Always works on 0 - 1.
 	const std::function<const double(const double normalised)> modifier;
@@ -62,11 +101,4 @@ struct CustomParameter {
 
 	//	return std::fma(modifier(normalisedValue), range, minPlain);
 	//}
-
-	inline const double normalisedToReal(double normalised) {
-		//if (normalisedValue == normalised)
-		//	return realValue;
-
-		return plainToRealFunc(std::fma(modifier(normalisedValue), range, minPlain));
-	}
 };

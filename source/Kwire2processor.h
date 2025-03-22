@@ -1,28 +1,24 @@
-//------------------------------------------------------------------------
-// Copyright(c) 2025 Laser Brain.
-//------------------------------------------------------------------------
-
 #pragma once
 
 #include "public.sdk/source/vst/vstaudioeffect.h"
 
-#include <includes/common.h>
+#include "parameters.h"
 
-namespace MyCompanyName {
+namespace Kwire2 {
 
 //------------------------------------------------------------------------
-//  K_wire_2Processor
+//  Kwire2Processor
 //------------------------------------------------------------------------
-class K_wire_2Processor : public Steinberg::Vst::AudioEffect
+class Kwire2Processor : public Steinberg::Vst::AudioEffect
 {
 public:
-	K_wire_2Processor ();
-	~K_wire_2Processor () SMTG_OVERRIDE;
+	Kwire2Processor ();
+	~Kwire2Processor () SMTG_OVERRIDE;
 
     // Create function
 	static Steinberg::FUnknown* createInstance (void* /*context*/) 
 	{ 
-		return (Steinberg::Vst::IAudioProcessor*)new K_wire_2Processor; 
+		return (Steinberg::Vst::IAudioProcessor*)new Kwire2Processor; 
 	}
 
 	//--- ---------------------------------------------------------------------
@@ -36,6 +32,8 @@ public:
 	
 	/** Switch the Plug-in on/off */
 	Steinberg::tresult PLUGIN_API setActive (Steinberg::TBool state) SMTG_OVERRIDE;
+
+	Steinberg::tresult PLUGIN_API setBusArrangements(Steinberg::Vst::SpeakerArrangement* inputs, Steinberg::int32 numIns, Steinberg::Vst::SpeakerArrangement* outputs, Steinberg::int32 numOuts) SMTG_OVERRIDE;
 
 	/** Will be called before any process call */
 	Steinberg::tresult PLUGIN_API setupProcessing (Steinberg::Vst::ProcessSetup& newSetup) SMTG_OVERRIDE;
@@ -55,15 +53,8 @@ protected:
 	void setSampleRate(double sr);
 	double sampleRate = 44100.0;
 
-	double inputGain = -1.0,
-		crossFreq = -1.0,
-		threshold = -1.0,
-		attenuation = -1.0,
-		attackMs = -1.0,
-		releaseMs = -1.0,
-		mix = -1.0,
-		outputGain = -1.0;
+	double* value[nParams];
 };
 
 //------------------------------------------------------------------------
-} // namespace MyCompanyName
+} // namespace Kwire2
