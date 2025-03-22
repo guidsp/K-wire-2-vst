@@ -43,11 +43,10 @@ struct CustomParameter
 
 	void prepareBuffer() 
 	{
-		std::fill_n(buffer, MAX_BUFFER_SIZE, realValue);
+		std::fill(buffer, buffer + MAX_BUFFER_SIZE, realValue);
 	}
 
-	// Fills the buffer with a ramp from the previous real value
-	// to the new real value.
+	// Fills the buffer with a ramp from the previous real value to the new real value.
 	inline void update(const double normalised, const int frames) 
 	{
 		if (normalisedValue == normalised)
@@ -57,22 +56,44 @@ struct CustomParameter
 		else
 		{
 			// Unary transform; since I provided only one range (first two arguments), the third argument is the output.
-			// The lambda gets one argument (double& value), which is a reference to an element of buffer.
+			// The lambda gets one argument (double& value), which is a reference to an element of the buffer.
 			std::transform(std::execution::unseq, buffer, buffer + frames, buffer, [this, normalised, frames](double& value)
 			{
-				const auto index = &value - buffer;
-				double t = double(index) / double(frames - 1);
+				const auto index = &value - buffer + 1;
+				const double t = double(index) / double(frames);
 				return normalisedToReal(std::lerp(normalisedValue, normalised, t));
 			});
 
 			normalisedValue = normalised;
 			realValue = buffer[frames - 1];
-
-			std::fill(buffer + frames, buffer + MAX_BUFFER_SIZE, realValue);
 		}
 	}
 
-	inline const double normalisedToReal(double normalised) 
+	// Creates a ramp from current real value to target value between start and end.
+	inline void update(const double normalised, const int start, const int end)
+	{
+		if (normalisedValue == normalised)
+		{
+			std::fill(buffer + start, buffer + end + 1, realValue);
+		}
+		else
+		{
+			const double range = max(1, end - start);
+
+			std::transform(std::execution::unseq, buffer + start, buffer + end + 1, buffer + start, [this, normalised, start, range](double& value)
+			{
+				const auto index = &value - (buffer + start) + 1;
+				const double t = double(index) / range;
+
+				return normalisedToReal(herp(normalisedValue, normalised, t));
+			});
+
+			normalisedValue = normalised;
+			realValue = buffer[end];
+		}
+	}
+
+	inline const double normalisedToReal(const double normalised) 
 	{
 		return plainToRealFunc(minPlain + modifier(normalised) * range);
 	}

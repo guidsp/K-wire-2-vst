@@ -23,6 +23,22 @@ inline static double funLog(const double input, const double curve = -0.25)
 	return curve * (input / (-1.0 + curve + input));
 }
 
+// Hermite interpolation with a fixed slope, often called smoothstep.
+template <typename T>
+inline static T herp(const T first, const T second, double i)
+{
+	const double weight = i * i * (3.0 - 2.0 * i);
+
+	return (1.0 - weight) * first + weight * second;
+}
+
+// Linear extrapolation.
+template <typename T>
+inline static T lexp(const T x, const T x1, const T x2, const T y1, const T y2)
+{
+	return y1 + (x - x1) * (y2 - y1) / (x2 - x1);
+}
+
 template <typename T>
 inline static T dbtoa(const T dB) 
 {

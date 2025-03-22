@@ -140,15 +140,43 @@ namespace Kwire2 {
 					const Vst::ParamID paramID = paramQueue->getParameterId();
 					const int32 numPoints = paramQueue->getPointCount();
 					CustomParameter* param = &customParameters[paramID];
-					Vst::ParamValue value;
+					Vst::ParamValue value = 0.0;
 					int32 sampleOffset;	
 
-					for (auto pointIndex = 0; pointIndex < numPoints; ++pointIndex)
+					if (numPoints == 1)
 					{
-						if (paramQueue->getPoint(pointIndex, sampleOffset, value) == kResultTrue)
-						{
-							debug(sampleOffset);
+						// Received one parameter change point; long ramp from start to end of the buffer.
+						if (paramQueue->getPoint(0, sampleOffset, value) == kResultTrue)
 							param->update(value, data.numSamples);
+					}
+					else
+					{
+						// Multiple points; make consecutive ramps between them.
+						int startSample = 0;
+
+						for (auto pointIndex = 0; pointIndex < numPoints; ++pointIndex)
+						{
+							Vst::ParamValue lastValue = value;
+
+							if (paramQueue->getPoint(pointIndex, sampleOffset, value) == kResultTrue)
+							{
+								// Skew sample offsets away from the start of the callback.
+								// Since Live doesn't provide a last sample value, we need to leave room at the
+								// start of the buffer for a smooth interpolation.
+								// We can't help but extrapolate because we don't know the last value.
+
+								sampleOffset = int32(data.numSamples * funLog(double(sampleOffset) / double(data.numSamples) * 0.9 + 0.1, 5.0));
+
+								if (pointIndex == (numPoints - 1))
+								{
+									value = std::clamp(lexp(double(data.numSamples - 1), double(startSample), double(sampleOffset), lastValue, value), 0.0, 1.0);
+									sampleOffset = data.numSamples - 1;
+								}
+
+								param->update(value, startSample, sampleOffset);
+
+								startSample = sampleOffset;
+							}
 						}
 					}
 				}
@@ -189,27 +217,21 @@ namespace Kwire2 {
 		{
 			if (data.outputs[0].numChannels == 2)
 			{
-				for (int i = 0; i < data.numSamples; ++i)
-				{
-					static_cast<float*>(out[0])[i] = static_cast<float*>(in[0])[i] * value[inGainId][i];
-					static_cast<float*>(out[1])[i] = static_cast<float*>(in[1])[i] * value[inGainId][i];
-				}
+				// 2 outs
+				std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, value[inGainId], (float*)out[0],
+					[](float input, double gain) { return input * float(gain); }
+				);
 
-				//// 2 outs
-				//std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, value[inGainId], (float*)out[0],
-				//	[](float input, double gain) { return input * float(gain); }
-				//);
-
-				//if (data.inputs[0].numChannels == 2)
-				//	// 2 ins
-				//	std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, value[inGainId], (float*)out[1],
-				//		[](float input, double gain) { return input * float(gain); }
-				//	);
-				//else
-				//	// 1 in
-				//	std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, value[inGainId], (float*)out[1],
-				//		[](float input, double gain) { return input * float(gain); }
-				//	);
+				if (data.inputs[0].numChannels == 2)
+					// 2 ins
+					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, value[inGainId], (float*)out[1],
+						[](float input, double gain) { return input * float(gain); }
+					);
+				else
+					// 1 in
+					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, value[inGainId], (float*)out[1],
+						[](float input, double gain) { return input * float(gain); }
+					);
 			}
 			else
 			{
