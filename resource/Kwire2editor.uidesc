@@ -12,7 +12,14 @@
 		"fonts": {},
 		"colors": {},
 		"control-tags": {
-			"InGain": "0"
+			"Attack": "4",
+			"Cross": "1",
+			"InGain": "0",
+			"Mix": "6",
+			"OutGain": "7",
+			"Ratio": "3",
+			"Release": "5",
+			"Threshold": "2"
 		},
 		"custom": {
 			"FocusDrawing": {},
@@ -34,18 +41,24 @@
 				"SplitViewSize_1_1": "0.5105973025048169411377330106915906071663",
 				"SplitViewSize_2_0": "0.5540540540540540570546568233112338930368",
 				"SplitViewSize_2_1": "0.4411196911196911263353115373320179060102",
-				"TabSwitchValue": "1",
+				"TabSwitchValue": "4",
 				"Version": "1"
 			},
 			"UIAttributesController": {},
 			"UIViewCreatorDataSource": {
-				"SelectedRow": "0"
+				"SelectedRow": "27"
 			},
 			"UIBitmapsDataSource": {
 				"SelectedRow": "0"
 			},
 			"UITagsDataSource": {
-				"SelectedRow": "0"
+				"SelectedRow": "4"
+			},
+			"UIColorsDataSource": {
+				"SelectedRow": "-1"
+			},
+			"UIFontsDataSource": {
+				"SelectedRow": "-1"
 			}
 		},
 		"templates": {
@@ -57,33 +70,261 @@
 					"mouse-enabled": "true",
 					"opacity": "1",
 					"origin": "0, 0",
-					"size": "140, 130",
+					"size": "350, 150",
 					"transparent": "false",
 					"wants-focus": "false"
 				},
 				"children": {
-					"CAnimKnob": {
+					"CViewContainer": {
 						"attributes": {
-							"angle-range": "270",
-							"angle-start": "135",
-							"bitmap": "Knob1",
-							"class": "CAnimKnob",
-							"control-tag": "InGain",
-							"default-value": "0.5",
-							"height-of-one-image": "100",
-							"inverse-bitmap": "false",
-							"max-value": "1",
-							"min-value": "0",
+							"background-color": "~ TransparentCColor",
+							"background-color-draw-style": "filled and stroked",
+							"class": "CViewContainer",
 							"mouse-enabled": "true",
 							"opacity": "1",
 							"origin": "10, 10",
-							"size": "100, 100",
-							"sub-pixmaps": "64",
+							"size": "100, 120",
 							"transparent": "false",
-							"value-inset": "0",
-							"wants-focus": "false",
-							"wheel-inc-value": "0.1",
-							"zoom-factor": "1.5"
+							"uidesc-label": "GainContainer",
+							"wants-focus": "false"
+						},
+						"children": {
+							"CAnimKnob": {
+								"attributes": {
+									"angle-range": "270",
+									"angle-start": "135",
+									"bitmap": "Knob1",
+									"class": "CAnimKnob",
+									"control-tag": "InGain",
+									"custom-view-name": "GainKnob",
+									"default-value": "0.5",
+									"height-of-one-image": "100",
+									"inverse-bitmap": "false",
+									"max-value": "1",
+									"min-value": "0",
+									"mouse-enabled": "true",
+									"opacity": "1",
+									"origin": "0, 0",
+									"size": "100, 100",
+									"sub-pixmaps": "64",
+									"tooltip": "Gain",
+									"transparent": "false",
+									"uidesc-label": "GainKnob",
+									"value-inset": "0",
+									"wants-focus": "false",
+									"wheel-inc-value": "0.1",
+									"zoom-factor": "1.5"
+								}
+							},
+							"CTextEdit": {
+								"attributes": {
+									"back-color": "~ TransparentCColor",
+									"background-offset": "0, 0",
+									"class": "CTextEdit",
+									"default-value": "0.5",
+									"font": "~ NormalFontBig",
+									"font-antialias": "true",
+									"font-color": "~ BlackCColor",
+									"frame-color": "~ BlackCColor",
+									"frame-width": "1",
+									"immediate-text-change": "false",
+									"max-value": "1",
+									"min-value": "0",
+									"mouse-enabled": "true",
+									"opacity": "1",
+									"origin": "0, 100",
+									"round-rect-radius": "6",
+									"secure-style": "false",
+									"shadow-color": "~ RedCColor",
+									"size": "100, 20",
+									"style-3D-in": "false",
+									"style-3D-out": "false",
+									"style-doubleclick": "false",
+									"style-no-draw": "false",
+									"style-no-frame": "false",
+									"style-no-text": "false",
+									"style-round-rect": "false",
+									"style-shadow-text": "false",
+									"text-alignment": "center",
+									"text-inset": "0, 0",
+									"text-rotation": "0",
+									"text-shadow-offset": "1, 1",
+									"title": "Gain",
+									"transparent": "false",
+									"uidesc-label": "GainLabel",
+									"value-precision": "2",
+									"wants-focus": "true",
+									"wheel-inc-value": "0.1"
+								}
+							}
+						}
+					},
+					"CViewContainer": {
+						"attributes": {
+							"background-color": "~ TransparentCColor",
+							"background-color-draw-style": "filled and stroked",
+							"class": "CViewContainer",
+							"mouse-enabled": "true",
+							"opacity": "1",
+							"origin": "120, 10",
+							"size": "100, 120",
+							"transparent": "false",
+							"uidesc-label": "ThreshContainer",
+							"wants-focus": "false"
+						},
+						"children": {
+							"CAnimKnob": {
+								"attributes": {
+									"angle-range": "270",
+									"angle-start": "135",
+									"bitmap": "Knob1",
+									"class": "CAnimKnob",
+									"control-tag": "Threshold",
+									"custom-view-name": "ThresholdKnob",
+									"default-value": "1",
+									"height-of-one-image": "100",
+									"inverse-bitmap": "false",
+									"max-value": "1",
+									"min-value": "0",
+									"mouse-enabled": "true",
+									"opacity": "1",
+									"origin": "0, 0",
+									"size": "100, 100",
+									"sub-pixmaps": "64",
+									"tooltip": "Threshold",
+									"transparent": "false",
+									"uidesc-label": "ThreshKnob",
+									"value-inset": "0",
+									"wants-focus": "false",
+									"wheel-inc-value": "0.1",
+									"zoom-factor": "1.5"
+								}
+							},
+							"CTextEdit": {
+								"attributes": {
+									"back-color": "~ TransparentCColor",
+									"background-offset": "0, 0",
+									"class": "CTextEdit",
+									"default-value": "0.5",
+									"font": "~ NormalFontBig",
+									"font-antialias": "true",
+									"font-color": "~ BlackCColor",
+									"frame-color": "~ BlackCColor",
+									"frame-width": "1",
+									"immediate-text-change": "false",
+									"max-value": "1",
+									"min-value": "0",
+									"mouse-enabled": "true",
+									"opacity": "1",
+									"origin": "0, 100",
+									"round-rect-radius": "6",
+									"secure-style": "false",
+									"shadow-color": "~ RedCColor",
+									"size": "100, 20",
+									"style-3D-in": "false",
+									"style-3D-out": "false",
+									"style-doubleclick": "false",
+									"style-no-draw": "false",
+									"style-no-frame": "false",
+									"style-no-text": "false",
+									"style-round-rect": "false",
+									"style-shadow-text": "false",
+									"text-alignment": "center",
+									"text-inset": "0, 0",
+									"text-rotation": "0",
+									"text-shadow-offset": "1, 1",
+									"title": "Threshold",
+									"transparent": "false",
+									"uidesc-label": "ThreshLabel",
+									"value-precision": "2",
+									"wants-focus": "true",
+									"wheel-inc-value": "0.1"
+								}
+							}
+						}
+					},
+					"CViewContainer": {
+						"attributes": {
+							"background-color": "~ TransparentCColor",
+							"background-color-draw-style": "filled and stroked",
+							"class": "CViewContainer",
+							"mouse-enabled": "true",
+							"opacity": "1",
+							"origin": "230, 10",
+							"size": "100, 120",
+							"transparent": "false",
+							"uidesc-label": "RatioContainer",
+							"wants-focus": "false"
+						},
+						"children": {
+							"CAnimKnob": {
+								"attributes": {
+									"angle-range": "270",
+									"angle-start": "135",
+									"bitmap": "Knob1",
+									"class": "CAnimKnob",
+									"control-tag": "Ratio",
+									"custom-view-name": "RatioKnob",
+									"default-value": "0.111111",
+									"height-of-one-image": "100",
+									"inverse-bitmap": "false",
+									"max-value": "1",
+									"min-value": "0",
+									"mouse-enabled": "true",
+									"opacity": "1",
+									"origin": "0, 0",
+									"size": "100, 100",
+									"sub-pixmaps": "64",
+									"tooltip": "Ratio",
+									"transparent": "false",
+									"uidesc-label": "RatioKnob",
+									"value-inset": "0",
+									"wants-focus": "false",
+									"wheel-inc-value": "0.1",
+									"zoom-factor": "1.5"
+								}
+							},
+							"CTextEdit": {
+								"attributes": {
+									"back-color": "~ TransparentCColor",
+									"background-offset": "0, 0",
+									"class": "CTextEdit",
+									"default-value": "0.5",
+									"font": "~ NormalFontBig",
+									"font-antialias": "true",
+									"font-color": "~ BlackCColor",
+									"frame-color": "~ BlackCColor",
+									"frame-width": "1",
+									"immediate-text-change": "false",
+									"max-value": "1",
+									"min-value": "0",
+									"mouse-enabled": "true",
+									"opacity": "1",
+									"origin": "0, 100",
+									"round-rect-radius": "6",
+									"secure-style": "false",
+									"shadow-color": "~ RedCColor",
+									"size": "100, 20",
+									"style-3D-in": "false",
+									"style-3D-out": "false",
+									"style-doubleclick": "false",
+									"style-no-draw": "false",
+									"style-no-frame": "false",
+									"style-no-text": "false",
+									"style-round-rect": "false",
+									"style-shadow-text": "false",
+									"text-alignment": "center",
+									"text-inset": "0, 0",
+									"text-rotation": "0",
+									"text-shadow-offset": "1, 1",
+									"title": "Ratio",
+									"transparent": "false",
+									"uidesc-label": "GainLabel",
+									"value-precision": "2",
+									"wants-focus": "true",
+									"wheel-inc-value": "0.1"
+								}
+							}
 						}
 					}
 				}

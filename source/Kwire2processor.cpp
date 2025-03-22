@@ -21,6 +21,8 @@ namespace Kwire2 {
 
 		for (int p = 0; p < nParams; ++p)
 			value[p] = customParameters[p].buffer;
+
+		std::fill(envelopeFollower, envelopeFollower + MAX_BUFFER_SIZE, 0);
 	}
 
 	//------------------------------------------------------------------------
@@ -165,7 +167,7 @@ namespace Kwire2 {
 								// start of the buffer for a smooth interpolation.
 								// We can't help but extrapolate because we don't know the last value.
 
-								sampleOffset = int32(data.numSamples * funLog(double(sampleOffset) / double(data.numSamples) * 0.9 + 0.1, 5.0));
+								sampleOffset = int32(data.numSamples * (0.1 + 0.9 * (double(sampleOffset) / double(data.numSamples))));
 
 								if (pointIndex == (numPoints - 1))
 								{
@@ -223,15 +225,30 @@ namespace Kwire2 {
 				);
 
 				if (data.inputs[0].numChannels == 2)
+				{
 					// 2 ins
 					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, value[inGainId], (float*)out[1],
 						[](float input, double gain) { return input * float(gain); }
 					);
+
+					////////////
+					// Crossover filter
+					
+					// Envelope Follower
+					// stereo link? maybe just attenuate side by much less
+					envelopeFollower = dbtoa(value[thresholdId] - atodb((abs(out) + abs(out2)) * 0.5));
+
+					// Attenuation
+					
+					// Mix
+				}
 				else
+				{
 					// 1 in
 					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, value[inGainId], (float*)out[1],
 						[](float input, double gain) { return input * float(gain); }
 					);
+				}
 			}
 			else
 			{

@@ -54,6 +54,8 @@ protected:
 	double sampleRate = 44100.0;
 
 	double* value[nParams];
+
+	double envelopeFollower[MAX_BUFFER_SIZE];
 };
 
 //------------------------------------------------------------------------
