@@ -46,7 +46,7 @@ struct CustomParameter
 		std::fill(buffer, buffer + MAX_BUFFER_SIZE, realValue);
 	}
 
-	// Fills the buffer with a ramp from the previous real value to the new real value.
+	// Fills the buffer with a ramp from the previous real paramValue to the new real paramValue.
 	inline void update(const double normalised, const int frames) 
 	{
 		if (normalisedValue == normalised)
@@ -56,7 +56,7 @@ struct CustomParameter
 		else
 		{
 			// Unary transform; since I provided only one range (first two arguments), the third argument is the output.
-			// The lambda gets one argument (double& value), which is a reference to an element of the buffer.
+			// The lambda gets one argument (double& paramValue), which is a reference to an element of the buffer.
 			std::transform(std::execution::unseq, buffer, buffer + frames, buffer, [this, normalised, frames](double& value)
 			{
 				const auto index = &value - buffer + 1;
@@ -69,7 +69,7 @@ struct CustomParameter
 		}
 	}
 
-	// Creates a ramp from current real value to target value between start and end.
+	// Creates a ramp from current real paramValue to target paramValue between start and end.
 	inline void update(const double normalised, const int start, const int end)
 	{
 		if (normalisedValue == normalised)
@@ -120,7 +120,7 @@ struct CustomParameter
 
 	// Modifies the distribution. Always works on 0 - 1.
 	const std::function<const double(const double normalised)> modifier;
-	// Convert the plain value to a working value.
+	// Convert the plain paramValue to a working paramValue.
 	const std::function<const double(const double plain)> plainToRealFunc;
 
 	//inline const double normalisedToPlain(double normalised) {

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <windows.h>
 #include <algorithm>
 #include <execution>
@@ -20,7 +22,7 @@ namespace Kwire2 {
 		setControllerClass(kKwire2ControllerUID);
 
 		for (int p = 0; p < nParams; ++p)
-			value[p] = customParameters[p].buffer;
+			paramValue[p] = customParameters[p].buffer;
 
 		std::fill(envelopeFollower, envelopeFollower + MAX_BUFFER_SIZE, 0);
 	}
@@ -139,46 +141,39 @@ namespace Kwire2 {
 			{
 				if (auto* paramQueue = data.inputParameterChanges->getParameterData(index))
 				{
-					const Vst::ParamID paramID = paramQueue->getParameterId();
-					const int32 numPoints = paramQueue->getPointCount();
+					// Make clean point list from parameter queue.
+					const ParamID paramID = paramQueue->getParameterId();
+					const int32 numPoints = paramPointQueue[paramID].fromParamQueue(paramQueue);
 					CustomParameter* param = &customParameters[paramID];
-					Vst::ParamValue value = 0.0;
-					int32 sampleOffset;	
 
 					if (numPoints == 1)
 					{
 						// Received one parameter change point; long ramp from start to end of the buffer.
-						if (paramQueue->getPoint(0, sampleOffset, value) == kResultTrue)
-							param->update(value, data.numSamples);
+						auto it = paramPointQueue[paramID].pointQueue.begin();
+						param->update(it->second, data.numSamples);
 					}
 					else
 					{
 						// Multiple points; make consecutive ramps between them.
-						int startSample = 0;
+						int32 startSample = 0;
+						ParamValue lastValue = param->normalisedValue;
 
-						for (auto pointIndex = 0; pointIndex < numPoints; ++pointIndex)
+						for (auto it = paramPointQueue[paramID].pointQueue.begin(); it != paramPointQueue[paramID].pointQueue.end(); ++it)
 						{
-							Vst::ParamValue lastValue = value;
+							int32 sampleOffset = it->first;
+							ParamValue value = it->second;
 
-							if (paramQueue->getPoint(pointIndex, sampleOffset, value) == kResultTrue)
+							if (std::next(it) == paramPointQueue[paramID].pointQueue.end())
 							{
-								// Skew sample offsets away from the start of the callback.
-								// Since Live doesn't provide a last sample value, we need to leave room at the
-								// start of the buffer for a smooth interpolation.
-								// We can't help but extrapolate because we don't know the last value.
-
-								sampleOffset = int32(data.numSamples * (0.1 + 0.9 * (double(sampleOffset) / double(data.numSamples))));
-
-								if (pointIndex == (numPoints - 1))
-								{
-									value = std::clamp(lexp(double(data.numSamples - 1), double(startSample), double(sampleOffset), lastValue, value), 0.0, 1.0);
-									sampleOffset = data.numSamples - 1;
-								}
-
-								param->update(value, startSample, sampleOffset);
-
-								startSample = sampleOffset;
+								// If this is the last ramp, linearly extrapolate to the end of the buffer.
+								value = std::clamp(lexp(double(data.numSamples - 1), double(startSample), double(it->first), lastValue, value), 0.0, 1.0);
+								sampleOffset = data.numSamples - 1;
 							}
+
+							param->update(value, startSample, sampleOffset);
+
+							startSample = sampleOffset;
+							lastValue = value;
 						}
 					}
 				}
@@ -195,23 +190,23 @@ namespace Kwire2 {
 		{
 			if (data.outputs[0].numChannels == 2)
 			{
-				std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, value[inGainId], (double*)out[0], std::multiplies<double>());
+				std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, paramValue[inGainId], (double*)out[0], std::multiplies<double>());
 
 				if (data.inputs[0].numChannels == 2)
-					std::transform(std::execution::unseq, (double*)in[1], (double*)in[1] + data.numSamples, value[inGainId], (double*)out[1], std::multiplies<double>());
+					std::transform(std::execution::unseq, (double*)in[1], (double*)in[1] + data.numSamples, paramValue[inGainId], (double*)out[1], std::multiplies<double>());
 				else
-					std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, value[inGainId], (double*)out[1], std::multiplies<double>());
+					std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, paramValue[inGainId], (double*)out[1], std::multiplies<double>());
 			}
 			else
 			{
 				if (data.inputs[0].numChannels == 2)
 				{
 					std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, (double*)in[1], (double*)out[0], std::plus<double>());
-					std::transform(std::execution::unseq, (double*)out[0], (double*)out[0] + data.numSamples, value[inGainId], (double*)out[0], std::multiplies<double>());
+					std::transform(std::execution::unseq, (double*)out[0], (double*)out[0] + data.numSamples, paramValue[inGainId], (double*)out[0], std::multiplies<double>());
 				}
 				else
 				{
-					std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, value[inGainId], (double*)out[0], std::multiplies<double>());
+					std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, paramValue[inGainId], (double*)out[0], std::multiplies<double>());
 				}
 			}
 		}
@@ -219,15 +214,24 @@ namespace Kwire2 {
 		{
 			if (data.outputs[0].numChannels == 2)
 			{
+
+				//for (int i = 0; i < data.numSamples; ++i)
+				//{
+				//	static_cast<float*>(out[0])[i] = paramValue[inGainId][i];
+				//	static_cast<float*>(out[1])[i] = paramValue[inGainId][i];
+				//}
+
+				//return kResultTrue;
+
 				// 2 outs
-				std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, value[inGainId], (float*)out[0],
+				std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[inGainId], (float*)out[0],
 					[](float input, double gain) { return input * float(gain); }
 				);
 
 				if (data.inputs[0].numChannels == 2)
 				{
 					// 2 ins
-					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, value[inGainId], (float*)out[1],
+					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, paramValue[inGainId], (float*)out[1],
 						[](float input, double gain) { return input * float(gain); }
 					);
 
@@ -236,7 +240,7 @@ namespace Kwire2 {
 					
 					// Envelope Follower
 					// stereo link? maybe just attenuate side by much less
-					envelopeFollower = dbtoa(value[thresholdId] - atodb((abs(out) + abs(out2)) * 0.5));
+					//envelopeFollower = dbtoa(paramValue[thresholdId] - atodb((abs(out) + abs(out2)) * 0.5));
 
 					// Attenuation
 					
@@ -245,7 +249,7 @@ namespace Kwire2 {
 				else
 				{
 					// 1 in
-					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, value[inGainId], (float*)out[1],
+					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[inGainId], (float*)out[1],
 						[](float input, double gain) { return input * float(gain); }
 					);
 				}
@@ -257,14 +261,14 @@ namespace Kwire2 {
 				{
 					// 2 ins
 					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, (float*)in[1], (float*)out[0], std::plus<float>());
-					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, value[inGainId], (float*)out[0],
+					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, paramValue[inGainId], (float*)out[0],
 						[](float input, double gain) { return input * float(gain); }
 					);
 				}
 				else
 				{
 					// 1 in
-					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, value[inGainId], (float*)out[0],
+					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[inGainId], (float*)out[0],
 						[](float input, double gain) { return input * float(gain); }
 					);
 				}

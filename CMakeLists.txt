@@ -39,6 +39,7 @@ smtg_add_vst3plugin(${PROJECT_NAME}
 	includes/constants.h
 	includes/parameters.h
 	includes/CustomParameter.h
+	includes/ParamPointQueue.h
 )
 
 # Add the includes directory to the target

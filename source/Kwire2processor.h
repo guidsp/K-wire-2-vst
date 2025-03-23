@@ -1,8 +1,10 @@
 #pragma once
 
 #include "public.sdk/source/vst/vstaudioeffect.h"
+#include "pluginterfaces/vst/ivstparameterchanges.h"
 
 #include "parameters.h"
+#include "ParamPointQueue.h"
 
 namespace Kwire2 {
 
@@ -53,7 +55,8 @@ protected:
 	void setSampleRate(double sr);
 	double sampleRate = 44100.0;
 
-	double* value[nParams];
+	double* paramValue[nParams];
+	ParamPointQueue paramPointQueue[nParams];
 
 	double envelopeFollower[MAX_BUFFER_SIZE];
 };
