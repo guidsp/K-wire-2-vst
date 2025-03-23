@@ -23,6 +23,7 @@ project(K_wire_2
 
 set(SMTG_CREATE_PLUGIN_LINK 0)
 set(SMTG_VSTGUI_ROOT "${vst3sdk_SOURCE_DIR}")
+set(SMTG_RUN_VST_VALIDATOR OFF)
 
 add_subdirectory(${vst3sdk_SOURCE_DIR} ${PROJECT_BINARY_DIR}/vst3sdk)
 smtg_enable_vst3_sdk()
