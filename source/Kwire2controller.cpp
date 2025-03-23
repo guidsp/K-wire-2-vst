@@ -82,8 +82,12 @@ IPlugView* PLUGIN_API Kwire2Controller::createView (FIDString name)
 tresult PLUGIN_API Kwire2Controller::setParamNormalized(Vst::ParamID tag, Vst::ParamValue value)
 {
 	// called by host to update your parameters
-	tresult result = EditControllerEx1::setParamNormalized(tag, value);
-	return result;
+	return EditControllerEx1::setParamNormalized(tag, value);;
+}
+
+Steinberg::Vst::ParamValue Kwire2Controller::getParamNormalized(Steinberg::Vst::ParamID tag)
+{
+	return EditControllerEx1::getParamNormalized(tag);
 }
 
 //------------------------------------------------------------------------
@@ -97,7 +101,7 @@ tresult PLUGIN_API Kwire2Controller::getParamStringByValue(Vst::ParamID tag, Vst
 	std::stringstream display;
 	display << std::fixed << std::setprecision(param->stepCount == 0 ? 2 : 0) << param->normalisedToPlain(valueNormalized);
 
-	bool convert = VST3::StringConvert::convert(display.str(), string);
+	bool convert = Steinberg::Vst::StringConvert::convert(display.str(), string);
 	return convert ? kResultTrue : kResultFalse;
 }
 
@@ -114,21 +118,34 @@ Steinberg::Vst::ParamValue Kwire2Controller::normalizedParamToPlain(Steinberg::V
 	CustomParameter* param = &customParameters[tag];
 
 	if (!param)
-		return kResultFalse;
+		return EditControllerEx1::normalizedParamToPlain(tag, valueNormalized);
 
 	return param->normalisedToPlain(valueNormalized);
 }
 
+Steinberg::Vst::ParamValue Kwire2Controller::plainParamToNormalized(Steinberg::Vst::ParamID tag, Steinberg::Vst::ParamValue plainValue)
+{
+	CustomParameter* param = &customParameters[tag];
+
+	if (!param)
+		return EditControllerEx1::plainParamToNormalized(tag, plainValue);
+
+	return param->plainToNormalised(plainValue);
+}
+
 void Kwire2Controller::makeParameters()
 {
-	// Converter for converting strings to utf 16 (accepted by vst3)
-	std::wstring_convert<std::codecvt<char16_t, char, std::mbstate_t>, char16_t> converter;
-
-	for (int i = 0; i < nParams; ++i) {
+	for (int i = 0; i < nParams; ++i) 
+	{
 		CustomParameter* param = &customParameters[i];
 
-		Vst::RangeParameter* p = new Vst::RangeParameter(converter.from_bytes(param->title).c_str(), i, converter.from_bytes(param->units).c_str(),
-			param->minPlain, param->maxPlain, param->defaultPlain, param->stepCount, param->flags, 0, converter.from_bytes(param->shortTitle).c_str());
+		// Convert strings to UTF-16 encoded std::u16string
+		const std::u16string utf16Title = toU16String(param->title);
+		const std::u16string utf16Units = toU16String(param->units);
+		const std::u16string utf16ShortTitle = toU16String(param->shortTitle);
+
+		Vst::RangeParameter* p = new Vst::RangeParameter(utf16Title.c_str(), i, utf16Units.c_str(),
+			param->minPlain, param->maxPlain, param->defaultPlain, param->stepCount, param->flags, 0, utf16ShortTitle.c_str());
 
 		p->setPrecision(param->stepCount == 0 ? 2 : 0);
 		parameters.addParameter(p);

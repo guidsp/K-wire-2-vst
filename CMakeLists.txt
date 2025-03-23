@@ -38,6 +38,7 @@ smtg_add_vst3plugin(${PROJECT_NAME}
     source/Kwire2entry.cpp
 	includes/constants.h
 	includes/parameters.h
+	includes/LookupTable.h
 	includes/CustomParameter.h
 	includes/ParamPointQueue.h
 )

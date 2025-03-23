@@ -9,13 +9,13 @@
 #include "public.sdk/source/vst/vsteditcontroller.h"
 
 #include "constants.h"
+#include "LookupTable.h"
 
 struct CustomParameter 
 {
 	CustomParameter(short id_, const char* title_, const char* shortTitle_ = "", const char* units_ = "",
-		double min_ = 0, double max_ = 1, double defaultPlain_ = 1, int stepCount_ = 0,
-		std::function<double(double normalised)> modifier_ = { [=](double normalised) { return normalised; } },
-		std::function<double(double normalised)> plainToRealFunc_ = { [=](double plain) { return plain; } },
+		double min_ = 0, double max_ = 1, double defaultPlain_ = 1, int stepCount_ = 0, double skewFactor_ = 0.0,
+		std::function<const double(const double normalised)> plainToRealFunc_ = { [](double plain) { return plain; } },
 
 		int32_t flags_ = Steinberg::Vst::ParameterInfo::ParameterFlags::kCanAutomate) :
 
@@ -29,13 +29,28 @@ struct CustomParameter
 		range(max_ - min_),
 		plainValue(defaultPlain_),
 		stepCount(stepCount_),
-		modifier(modifier_),
+		skewFactor(skewFactor_),
 		plainToRealFunc(plainToRealFunc_),
 		flags(flags_)
 	{
 		assert(stepCount == 0 || stepCount == int(maxPlain - minPlain));
 
-		normalisedValue = (plainValue - minPlain) / range;
+		if (skewFactor != 0.0)
+		{
+			// Skew factor; set up the modifier tables and functions.
+			for (auto i = 0; i < wtSize; ++i)
+			{
+				const double index = double(i) / double(wtSize - 1);
+
+				modifierTable.table[i] = funLog(index, skewFactor);
+				reverseModifierTable.table[i] = funLog(index, 1.0 - skewFactor);
+			}
+
+			modifier = [this](double normalised) { return modifierTable.lookup(normalised); };
+			reverseModifier = [this](double normalised) { return reverseModifierTable.lookup(normalised); };
+		}
+
+		normalisedValue = plainToNormalised(plainValue);
 		realValue = normalisedToReal(normalisedValue);
 
 		prepareBuffer();
@@ -55,8 +70,6 @@ struct CustomParameter
 		}
 		else
 		{
-			// Unary transform; since I provided only one range (first two arguments), the third argument is the output.
-			// The lambda gets one argument (double& paramValue), which is a reference to an element of the buffer.
 			std::transform(std::execution::unseq, buffer, buffer + frames, buffer, [this, normalised, frames](double& value)
 			{
 				const auto index = &value - buffer + 1;
@@ -103,6 +116,11 @@ struct CustomParameter
 		return minPlain + modifier(normalised) * range;
 	}
 
+	inline const double plainToNormalised(const double plain)
+	{
+		return reverseModifier((plain - minPlain) / range);
+	}
+
 	const int id;
 
 	const std::string title,
@@ -114,6 +132,10 @@ struct CustomParameter
 		defaultPlain,
 		range;
 
+	// Skew factor applied to the normalised value, changing the
+	// distribution of the parameter.
+	const double skewFactor;
+
 	const int stepCount;
 	const int32_t flags;
 
@@ -123,8 +145,20 @@ struct CustomParameter
 
 	double buffer[MAX_BUFFER_SIZE];
 
+	// Convert the plain paramValue to a working paramValue (eg. db to linear gain).
+	std::function<const double(const double plain)> plainToRealFunc;
+
 	// Modifies the distribution. Always works on 0 - 1.
-	const std::function<const double(const double normalised)> modifier;
-	// Convert the plain paramValue to a working paramValue.
-	const std::function<const double(const double plain)> plainToRealFunc;
+	std::function<const double(const double normalised)> modifier = [](double normalised) { return normalised; };
+
+	// Performs the opposite of the modifier function. 
+	// Used for normalised -> plain conversion.
+	std::function<const double(const double normalised)> reverseModifier = [](double normalised) { return normalised; };
+
+	static constexpr int wtSize = 64;
+
+	// Distribution lookup table. Used if the skew factor != 0.0;
+	LookupTable<double, wtSize> modifierTable;
+	// Its reverse.
+	LookupTable<double, wtSize> reverseModifierTable;
 };

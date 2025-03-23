@@ -4,6 +4,7 @@
 #include <cassert>
 #include <debugapi.h>
 #include <string>
+#include <stdexcept>
 
 //=========================================
 // Constants
@@ -32,13 +33,6 @@ inline static T herp(const T first, const T second, double i)
 	return (1.0 - weight) * first + weight * second;
 }
 
-// Linear extrapolation.
-template <typename T>
-inline static T lexp(const T x, const T x1, const T x2, const T y1, const T y2)
-{
-	return y1 + (x - x1) * (y2 - y1) / (x2 - x1);
-}
-
 template <typename T>
 inline static T dbtoa(const T dB) 
 {
@@ -63,6 +57,22 @@ template <typename T>
 inline static T ftom(const T f)
 {
 	return 12.0 * (log(f / 220.0) * 3.32192809489) + 57.0;
+}
+
+static std::u16string toU16String(const std::string& narrowString) 
+{
+	// Calculate the size needed for the UTF-16 string
+	int wideSize = MultiByteToWideChar(CP_UTF8, 0, narrowString.c_str(), -1, nullptr, 0);
+
+	if (wideSize == 0)
+		return u"";
+
+	// Allocate a buffer for the UTF-16 string
+	std::vector<char16_t> wideBuffer(wideSize);
+	MultiByteToWideChar(CP_UTF8, 0, narrowString.c_str(), -1, reinterpret_cast<LPWSTR>(wideBuffer.data()), wideSize);
+
+	// Return the UTF-16 string
+	return std::u16string(wideBuffer.data());
 }
 
 inline static void debug(double value) 
