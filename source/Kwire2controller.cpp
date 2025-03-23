@@ -3,7 +3,6 @@
 #include "public.sdk/source/vst/utility/stringconvert.h"
 #include "Kwire2controller.h"
 #include "Kwire2cids.h"
-#include "vstgui/plugin-bindings/vst3editor.h"
 #include "parameters.h"
 
 using namespace Steinberg;
@@ -90,9 +89,16 @@ tresult PLUGIN_API Kwire2Controller::setParamNormalized(Vst::ParamID tag, Vst::P
 //------------------------------------------------------------------------
 tresult PLUGIN_API Kwire2Controller::getParamStringByValue(Vst::ParamID tag, Vst::ParamValue valueNormalized, Vst::String128 string)
 {
-	// called by host to get a string for given normalized value of a specific parameter
-	// (without having to set the value!)
-	return EditControllerEx1::getParamStringByValue(tag, valueNormalized, string);
+	CustomParameter* param = &customParameters[tag];
+
+	if (!param)
+		return kResultFalse;
+
+	std::stringstream display;
+	display << std::fixed << std::setprecision(param->stepCount == 0 ? 2 : 0) << param->normalisedToPlain(valueNormalized);
+
+	bool convert = VST3::StringConvert::convert(display.str(), string);
+	return convert ? kResultTrue : kResultFalse;
 }
 
 //------------------------------------------------------------------------
@@ -101,6 +107,16 @@ tresult PLUGIN_API Kwire2Controller::getParamValueByString(Vst::ParamID tag, Vst
 	// called by host to get a normalized value from a string representation of a specific parameter
 	// (without having to set the value!)
 	return EditControllerEx1::getParamValueByString(tag, string, valueNormalized);
+}
+
+Steinberg::Vst::ParamValue Kwire2Controller::normalizedParamToPlain(Steinberg::Vst::ParamID tag, Steinberg::Vst::ParamValue valueNormalized)
+{
+	CustomParameter* param = &customParameters[tag];
+
+	if (!param)
+		return kResultFalse;
+
+	return param->normalisedToPlain(valueNormalized);
 }
 
 void Kwire2Controller::makeParameters()

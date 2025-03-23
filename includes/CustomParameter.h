@@ -61,7 +61,7 @@ struct CustomParameter
 			{
 				const auto index = &value - buffer + 1;
 				const double t = double(index) / double(frames);
-				return normalisedToReal(std::lerp(normalisedValue, normalised, t));
+				return normalisedToReal(herp(normalisedValue, normalised, t));
 			});
 
 			normalisedValue = normalised;
@@ -95,7 +95,12 @@ struct CustomParameter
 
 	inline const double normalisedToReal(const double normalised) 
 	{
-		return plainToRealFunc(minPlain + modifier(normalised) * range);
+		return plainToRealFunc(normalisedToPlain(normalised));
+	}
+
+	inline const double normalisedToPlain(const double normalised)
+	{
+		return minPlain + modifier(normalised) * range;
 	}
 
 	const int id;
@@ -122,11 +127,4 @@ struct CustomParameter
 	const std::function<const double(const double normalised)> modifier;
 	// Convert the plain paramValue to a working paramValue.
 	const std::function<const double(const double plain)> plainToRealFunc;
-
-	//inline const double normalisedToPlain(double normalised) {
-	//	//if (normalisedValue == normalised)
-	//	//	return plainValue;
-
-	//	return std::fma(modifier(normalisedValue), range, minPlain);
-	//}
 };

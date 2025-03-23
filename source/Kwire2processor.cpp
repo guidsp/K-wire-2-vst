@@ -146,35 +146,48 @@ namespace Kwire2 {
 					const int32 numPoints = paramPointQueue[paramID].fromParamQueue(paramQueue);
 					CustomParameter* param = &customParameters[paramID];
 
-					if (numPoints == 1)
+					// TODO: Figure out how to handle sample accurate automation with lacking data.
+					if (true || numPoints == 1)
 					{
 						// Received one parameter change point; long ramp from start to end of the buffer.
-						auto it = paramPointQueue[paramID].pointQueue.begin();
+						auto it = paramPointQueue[paramID].pointQueue.end();
+						--it;
+
 						param->update(it->second, data.numSamples);
 					}
 					else
 					{
 						// Multiple points; make consecutive ramps between them.
-						int32 startSample = 0;
-						ParamValue lastValue = param->normalisedValue;
+						int32 start = 0;
+						int32 end = 0;
+						ParamValue startValue = param->normalisedValue;
 
 						for (auto it = paramPointQueue[paramID].pointQueue.begin(); it != paramPointQueue[paramID].pointQueue.end(); ++it)
 						{
-							int32 sampleOffset = it->first;
-							ParamValue value = it->second;
+							end = it->first;
+
+							// A ramp to 0 is an instant step; ignore.
+							if (end == 0)
+								continue;
+
+							const ParamValue targetValue = it->second;
 
 							if (std::next(it) == paramPointQueue[paramID].pointQueue.end())
 							{
-								// If this is the last ramp, linearly extrapolate to the end of the buffer.
-								value = std::clamp(lexp(double(data.numSamples - 1), double(startSample), double(it->first), lastValue, value), 0.0, 1.0);
-								sampleOffset = data.numSamples - 1;
+								// If this is the last ramp, extend it to the end of the buffer.
+								// Linear extrapolation
+								//value = std::clamp(lexp(double(data.numSamples - 1), double(startSample), double(it->first), lastValue, value), 0.0, 1.0);
+								end = data.numSamples - 1;
 							}
 
-							param->update(value, startSample, sampleOffset);
+							param->update(targetValue, start, end);
 
-							startSample = sampleOffset;
-							lastValue = value;
+							start = end;
+							startValue = targetValue;
 						}
+
+						if (end != (data.numSamples - 1))
+							param->update(param->normalisedValue, end, data.numSamples - 1);
 					}
 				}
 			}
