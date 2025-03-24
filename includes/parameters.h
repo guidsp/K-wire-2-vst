@@ -31,7 +31,7 @@ enum ParameterIDs {
 static CustomParameter customParameters[nParams] = {
 	CustomParameter(inGainId, "Input", "Input", "dB", -24, 24, 0, 0, 0, [](double plain) { return dbtoa(plain); }),
 	CustomParameter(crossoverId, "Crossover", "Cross", "Hz", 80, 160, 120, 0),
-	CustomParameter(thresholdId, "Threshold", "Thresh", "dB", -36, 0, 0, 0, 0, [](double plain) { return dbtoa(plain); }),
+	CustomParameter(thresholdId, "Threshold", "Thresh", "dB", -36, 0, 0, 0, 0),
 	CustomParameter(ratioId, "Ratio", "Ratio", ": 1", 1, 10, 2, 0, -0.2, [](double plain) { return 1.0 - 1.0 / plain; }),
 	CustomParameter(attackId, "Attack", "Attack", "ms", 0, 100, 10, 0, -0.75),
 	CustomParameter(releaseId, "Release", "Release", "ms", 0, 300, 20, 0, -0.75),
