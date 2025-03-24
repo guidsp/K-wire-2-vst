@@ -95,14 +95,16 @@ tresult PLUGIN_API Kwire2Controller::getParamStringByValue(Vst::ParamID tag, Vst
 {
 	CustomParameter* param = &customParameters[tag];
 
-	if (!param)
-		return kResultFalse;
+	if (param)
+	{
+		std::stringstream display;
+		display << std::fixed << std::setprecision(param->stepCount == 0 ? 2 : 0) << param->normalisedToPlain(valueNormalized);
 
-	std::stringstream display;
-	display << std::fixed << std::setprecision(param->stepCount == 0 ? 2 : 0) << param->normalisedToPlain(valueNormalized);
+		bool convert = Steinberg::Vst::StringConvert::convert(display.str(), string);
+		return convert ? kResultTrue : kResultFalse;
+	}
 
-	bool convert = Steinberg::Vst::StringConvert::convert(display.str(), string);
-	return convert ? kResultTrue : kResultFalse;
+	return kResultFalse;
 }
 
 //------------------------------------------------------------------------
@@ -110,29 +112,35 @@ tresult PLUGIN_API Kwire2Controller::getParamValueByString(Vst::ParamID tag, Vst
 {
 	// called by host to get a normalized value from a string representation of a specific parameter
 	// (without having to set the value!)
+	CustomParameter* param = &customParameters[tag];
+
+	if (param)
+	{
+		std::string str;
+		bool convert = Steinberg::Vst::StringConvert::convert(str, string);
+
+		if (convert)
+		{
+			valueNormalized = param->plainToNormalised(std::stod(str));
+
+			return kResultTrue;
+		}
+	}
+
 	return EditControllerEx1::getParamValueByString(tag, string, valueNormalized);
 }
 
 Steinberg::Vst::ParamValue Kwire2Controller::normalizedParamToPlain(Steinberg::Vst::ParamID tag, Steinberg::Vst::ParamValue valueNormalized)
 {
-	CustomParameter* param = &customParameters[tag];
-
-	if (!param)
-		return EditControllerEx1::normalizedParamToPlain(tag, valueNormalized);
-
-	return param->normalisedToPlain(valueNormalized);
+	return EditControllerEx1::normalizedParamToPlain(tag, valueNormalized);
 }
 
 Steinberg::Vst::ParamValue Kwire2Controller::plainParamToNormalized(Steinberg::Vst::ParamID tag, Steinberg::Vst::ParamValue plainValue)
 {
-	CustomParameter* param = &customParameters[tag];
-
-	if (!param)
-		return EditControllerEx1::plainParamToNormalized(tag, plainValue);
-
-	return param->plainToNormalised(plainValue);
+	return EditControllerEx1::plainParamToNormalized(tag, plainValue);
 }
 
+// Fix defaults being warped with modifier.
 void Kwire2Controller::makeParameters()
 {
 	for (int i = 0; i < nParams; ++i) 
@@ -145,7 +153,7 @@ void Kwire2Controller::makeParameters()
 		const std::u16string utf16ShortTitle = toU16String(param->shortTitle);
 
 		Vst::RangeParameter* p = new Vst::RangeParameter(utf16Title.c_str(), i, utf16Units.c_str(),
-			param->minPlain, param->maxPlain, param->defaultPlain, param->stepCount, param->flags, 0, utf16ShortTitle.c_str());
+			0, 1, param->plainToNormalised(param->defaultPlain), param->stepCount, param->flags, 0, utf16ShortTitle.c_str());
 
 		p->setPrecision(param->stepCount == 0 ? 2 : 0);
 		parameters.addParameter(p);

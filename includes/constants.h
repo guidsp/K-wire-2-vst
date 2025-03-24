@@ -24,6 +24,13 @@ inline static double funLog(const double input, const double curve = -0.25)
 	return curve * (input / (-1.0 + curve + input));
 }
 
+inline static double funLogReverse(const double input, const double curve = -0.25)
+{
+	assert(!std::isinf(curve * (input / (-1.0 + curve + input))));
+
+	return (input - input * curve) / (input - curve);
+}
+
 // Hermite interpolation with a fixed slope, often called smoothstep.
 template <typename T>
 inline static T herp(const T first, const T second, double i)

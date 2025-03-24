@@ -43,7 +43,7 @@ struct CustomParameter
 				const double index = double(i) / double(wtSize - 1);
 
 				modifierTable.table[i] = funLog(index, skewFactor);
-				reverseModifierTable.table[i] = funLog(index, 1.0 - skewFactor);
+				reverseModifierTable.table[i] = funLogReverse(index, skewFactor);
 			}
 
 			modifier = [this](double normalised) { return modifierTable.lookup(normalised); };
