@@ -35,6 +35,6 @@ static CustomParameter customParameters[nParams] = {
 	CustomParameter(ratioId, "Ratio", "Ratio", ": 1", 1, 10, 2, 0, -0.2, [](double plain) { return 1.0 - 1.0 / plain; }),
 	CustomParameter(attackId, "Attack", "Attack", "ms", 0, 100, 10, 0, -0.75),
 	CustomParameter(releaseId, "Release", "Release", "ms", 0, 300, 20, 0, -0.75),
-	CustomParameter(mixId, "Mix", "Mix", "%", 0, 100, 100, 0),
+	CustomParameter(mixId, "Mix", "Mix", "%", 0, 100, 100, 0, 0, [](double plain) { return plain * 0.01; }),
 	CustomParameter(outGainId, "Output", "Out", "dB", -24, 24, 0, 0, 0, [](double plain) { return dbtoa(plain); })
 };

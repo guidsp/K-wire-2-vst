@@ -38,16 +38,19 @@ struct CustomParameter
 		if (skewFactor != 0.0)
 		{
 			// Skew factor; set up the modifier tables and functions.
-			for (auto i = 0; i < wtSize; ++i)
-			{
-				const double index = double(i) / double(wtSize - 1);
+			//for (auto i = 0; i < wtSize; ++i)
+			//{
+			//	const double index = double(i) / double(wtSize - 1);
 
-				modifierTable.table[i] = funLog(index, skewFactor);
-				reverseModifierTable.table[i] = funLogReverse(index, skewFactor);
-			}
+			//	modifierTable.table[i] = funLog(index, skewFactor);
+			//	reverseModifierTable.table[i] = funLogReverse(index, skewFactor);
+			//}
 
-			modifier = [this](double normalised) { return modifierTable.lookup(normalised); };
-			reverseModifier = [this](double normalised) { return reverseModifierTable.lookup(normalised); };
+			//modifier = [this](double normalised) { return modifierTable.lookup(normalised); };
+			//reverseModifier = [this](double normalised) { return reverseModifierTable.lookup(normalised); };
+			 
+			modifier = [this](double normalised) { return funLog(normalised, skewFactor); };
+			reverseModifier = [this](double normalised) { return funLogReverse(normalised, skewFactor); };
 		}
 
 		normalisedValue = plainToNormalised(plainValue);
@@ -155,10 +158,10 @@ struct CustomParameter
 	// Used for normalised -> plain conversion.
 	std::function<const double(const double normalised)> reverseModifier = [](double normalised) { return normalised; };
 
-	static constexpr int wtSize = 64;
+	//static constexpr int wtSize = 64;
 
-	// Distribution lookup table. Used if the skew factor != 0.0;
-	LookupTable<double, wtSize> modifierTable;
-	// Its reverse.
-	LookupTable<double, wtSize> reverseModifierTable;
+	//// Distribution lookup table. Used if the skew factor != 0.0;
+	//LookupTable<double, wtSize> modifierTable;
+	//// Its reverse.
+	//LookupTable<double, wtSize> reverseModifierTable;
 };

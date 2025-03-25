@@ -199,29 +199,8 @@ namespace Kwire2 {
 
 		if (data.symbolicSampleSize == Vst::kSample64)
 		{
-			if (data.outputs[0].numChannels == 2)
-			{
-				std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, paramValue[inGainId], (double*)out[0], std::multiplies<double>());
-
-				if (data.inputs[0].numChannels == 2)
-					std::transform(std::execution::unseq, (double*)in[1], (double*)in[1] + data.numSamples, paramValue[inGainId], (double*)out[1], std::multiplies<double>());
-				else
-					std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, paramValue[inGainId], (double*)out[1], std::multiplies<double>());
-			}
-			else
-			{
-				if (data.inputs[0].numChannels == 2)
-				{
-					std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, (double*)in[1], (double*)out[0], std::plus<double>());
-					std::transform(std::execution::unseq, (double*)out[0], (double*)out[0] + data.numSamples, paramValue[inGainId], (double*)out[0], std::multiplies<double>());
-				}
-				else
-				{
-					std::transform(std::execution::unseq, (double*)in[0], (double*)in[0] + data.numSamples, paramValue[inGainId], (double*)out[0], std::multiplies<double>());
-				}
-			}
 		}
-		else
+		else if (data.symbolicSampleSize == Vst::kSample32)
 		{
 			if (data.outputs[0].numChannels == 2)
 			{
@@ -233,16 +212,9 @@ namespace Kwire2 {
 
 				//return kResultTrue;
 
-				// 2 outs
-				std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[inGainId], (float*)in[0],
-					[](float input, double gain) { return input * float(gain); });
 
 				if (data.inputs[0].numChannels == 2)
-				{
-					// 2 ins
-					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, paramValue[inGainId], (float*)in[1],
-						[](float input, double gain) { return input * float(gain); });
-					
+				{					
 					////////////
 					// Crossover filter
 					
@@ -250,8 +222,11 @@ namespace Kwire2 {
 					// y = 1.0 - ratio * dbtoa(thresholdInDb - atodb(0.5 * (abs(inL) + abs(inR))));
 					float rectifiedSignal[MAX_BUFFER_SIZE];
 
-					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, (float*)out[1], rectifiedSignal, 
+					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, (float*)in[1], rectifiedSignal, 
 						[](float left, float right) { return 0.5 * (abs(left) + abs(right)); });
+
+					std::transform(std::execution::unseq, rectifiedSignal, rectifiedSignal + data.numSamples, paramValue[inGainId], rectifiedSignal,
+						[](float signal, double gain) { return signal * gain; });
 
 					auto& difference = rectifiedSignal;
 
@@ -268,14 +243,14 @@ namespace Kwire2 {
 					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, attenuation, (float*)out[0], std::multiplies<float>());
 					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, attenuation, (float*)out[1], std::multiplies<float>());
 					
-					// Mix
-					// y = mix * outGain * out + (1 - mix) * in
+					 //Mix
+					 //y = mix * outGain * out + (1 - mix) * in
 					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, paramValue[outGainId], (float*)out[0], 
 						[](float out, double gain) { return out * gain; });
 
 					std::transform(std::execution::unseq, (float*)out[1], (float*)out[1] + data.numSamples, paramValue[outGainId], (float*)out[1],
 						[](float out, double gain) { return out * gain; });
-
+					
 					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, paramValue[mixId], (float*)out[0], 
 						[](float out, double mix) { return out * mix; });
 
@@ -288,9 +263,10 @@ namespace Kwire2 {
 					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, paramValue[mixId], (float*)in[1],
 						[](float input, double mix) { return input * (1.0 - mix); });
 
-					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + 2 * data.numSamples, (float*)in[0], (float*)out[0], std::plus<float>());
+					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, (float*)in[0], (float*)out[0], std::plus<float>());
+					std::transform(std::execution::unseq, (float*)out[1], (float*)out[1] + data.numSamples, (float*)in[1], (float*)out[1], std::plus<float>());
 				}
-				else
+				else if (data.inputs[0].numChannels == 1)
 				{
 					// 1 in
 					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[inGainId], (float*)out[1],
@@ -298,7 +274,7 @@ namespace Kwire2 {
 					);
 				}
 			}
-			else
+			else if (data.outputs[0].numChannels == 1)
 			{
 				// 1 out
 				if (data.inputs[0].numChannels == 2)
@@ -309,7 +285,7 @@ namespace Kwire2 {
 						[](float input, double gain) { return input * float(gain); }
 					);
 				}
-				else
+				else if (data.inputs[0].numChannels == 1)
 				{
 					// 1 in
 					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[inGainId], (float*)out[0],
