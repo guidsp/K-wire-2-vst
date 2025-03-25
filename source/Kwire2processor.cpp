@@ -235,15 +235,13 @@ namespace Kwire2 {
 
 				// 2 outs
 				std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[inGainId], (float*)in[0],
-					[](float input, double gain) { return input * float(gain); }
-				);
+					[](float input, double gain) { return input * float(gain); });
 
 				if (data.inputs[0].numChannels == 2)
 				{
 					// 2 ins
 					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, paramValue[inGainId], (float*)in[1],
-						[](float input, double gain) { return input * float(gain); }
-					);
+						[](float input, double gain) { return input * float(gain); });
 					
 					////////////
 					// Crossover filter
@@ -252,24 +250,18 @@ namespace Kwire2 {
 					// y = 1.0 - ratio * dbtoa(thresholdInDb - atodb(0.5 * (abs(inL) + abs(inR))));
 					float rectifiedSignal[MAX_BUFFER_SIZE];
 
-					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, (float*)out[1], rectifiedSignal, [](float left, float right)
-					{
-						return 0.5 * (abs(left) + abs(right));
-					});
+					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, (float*)out[1], rectifiedSignal, 
+						[](float left, float right) { return 0.5 * (abs(left) + abs(right)); });
 
 					auto& difference = rectifiedSignal;
 
-					std::transform(std::execution::unseq, rectifiedSignal, rectifiedSignal + data.numSamples, paramValue[thresholdId], difference, [](float signal, double threshold)
-					{
-						return min(0.0, threshold - atodb(signal));
-					});
+					std::transform(std::execution::unseq, rectifiedSignal, rectifiedSignal + data.numSamples, paramValue[thresholdId], difference, 
+						[](float signal, double threshold) { return min(0.0, threshold - atodb(signal)); });
 
 					auto& attenuation = difference;
 
-					std::transform(std::execution::unseq, difference, difference + data.numSamples, paramValue[ratioId], attenuation, [](float diff, double ratio)
-					{
-						return dbtoa(diff * ratio);
-					});
+					std::transform(std::execution::unseq, difference, difference + data.numSamples, paramValue[ratioId], attenuation, 
+						[](float diff, double ratio) { return dbtoa(diff * ratio); });
 
 					// Attenuated signal
 					// y = in * attenuation
@@ -278,22 +270,25 @@ namespace Kwire2 {
 					
 					// Mix
 					// y = mix * outGain * out + (1 - mix) * in
-					//std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, paramValue[outGainId], (float*)out[0], std::multiplies<float>());
-					//std::transform(std::execution::unseq, (float*)out[1], (float*)out[1] + data.numSamples, paramValue[outGainId], (float*)out[1], std::multiplies<float>());
+					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, paramValue[outGainId], (float*)out[0], 
+						[](float out, double gain) { return out * gain; });
 
-					//std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, paramValue[mixId], (float*)out[0], std::multiplies<float>());
-					//std::transform(std::execution::unseq, (float*)out[1], (float*)out[1] + data.numSamples, paramValue[mixId], (float*)out[1], std::multiplies<float>());
+					std::transform(std::execution::unseq, (float*)out[1], (float*)out[1] + data.numSamples, paramValue[outGainId], (float*)out[1],
+						[](float out, double gain) { return out * gain; });
 
-					//std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[mixId], (float*)in[0], [](float input, double mix)
-					//{
-					//	return input * (1.0 - mix);
-					//});
-					//std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, paramValue[mixId], (float*)in[1], [](float input, double mix)
-					//{
-					//	return input * (1.0 - mix);
-					//});
+					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, paramValue[mixId], (float*)out[0], 
+						[](float out, double mix) { return out * mix; });
 
-					//std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + 2 * data.numSamples, (float*)in[0], (float*)out[0], std::plus<float>());
+					std::transform(std::execution::unseq, (float*)out[1], (float*)out[1] + data.numSamples, paramValue[mixId], (float*)out[1], 
+						[](float out, double mix) { return out * mix; });
+
+					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[mixId], (float*)in[0], 
+						[](float input, double mix) { return input * (1.0 - mix); });
+
+					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, paramValue[mixId], (float*)in[1],
+						[](float input, double mix) { return input * (1.0 - mix); });
+
+					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + 2 * data.numSamples, (float*)in[0], (float*)out[0], std::plus<float>());
 				}
 				else
 				{
