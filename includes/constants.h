@@ -17,18 +17,26 @@ static constexpr int MAX_BUFFER_SIZE = 4096;
 
 // Adjustable curve for inputs between 0 and 1. Negative curve is exponential, positive curve above 1 is logarithmic.
 // https://www.desmos.com/calculator/bepz0uj5b9
-inline static double funLog(const double input, const double curve = -0.25) 
+template <typename T>
+inline static T funLog(const T input, const T curve = -0.25) 
 {
 	assert(!std::isinf(curve * (input / (-1.0 + curve + input))));
 
 	return curve * (input / (-1.0 + curve + input));
 }
 
-inline static double funLogReverse(const double input, const double curve = -0.25)
+template <typename T>
+inline static T funLogReverse(const T input, const T curve = -0.25)
 {
-	assert(!std::isinf(curve * (input / (-1.0 + curve + input))));
+	assert(!std::isinf((input - input * curve) / (input - curve)));
 
 	return (input - input * curve) / (input - curve);
+}
+
+// y = z1 + (x - z1) / steps
+template <typename T>
+inline static T slide(const T input, const T prevOutput, const T steps) {
+	return prevOutput + (input - prevOutput) / steps;
 }
 
 // Hermite interpolation with a fixed slope, often called smoothstep.

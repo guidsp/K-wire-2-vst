@@ -24,7 +24,7 @@ namespace Kwire2 {
 		for (int p = 0; p < nParams; ++p)
 			paramValue[p] = customParameters[p].buffer;
 
-		std::fill(envelopeFollower, envelopeFollower + MAX_BUFFER_SIZE, 0);
+		std::fill(rectifiedSignal, rectifiedSignal + MAX_BUFFER_SIZE, 0);
 	}
 
 	//------------------------------------------------------------------------
@@ -191,7 +191,7 @@ namespace Kwire2 {
 			}
 		}
 
-		// No input, no output.
+		// No amplifiedInput, no wetSignal.
 		data.outputs[0].silenceFlags = data.inputs[0].silenceFlags;
 
 		void** in = getChannelBuffersPointer(processSetup, data.inputs[0]);
@@ -220,51 +220,67 @@ namespace Kwire2 {
 					
 					// Envelope follower 
 					// y = 1.0 - ratio * dbtoa(thresholdInDb - atodb(0.5 * (abs(inL) + abs(inR))));
-					float rectifiedSignal[MAX_BUFFER_SIZE];
 
-					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, (float*)in[1], rectifiedSignal, 
-						[](float left, float right) { return 0.5 * (abs(left) + abs(right)); });
+					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[inGainId], amplifiedInput[0],
+						[](float input, double inputGain) { return static_cast<double>(input * inputGain); });
 
-					std::transform(std::execution::unseq, rectifiedSignal, rectifiedSignal + data.numSamples, paramValue[inGainId], rectifiedSignal,
-						[](float signal, double gain) { return signal * gain; });
+					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, paramValue[inGainId], amplifiedInput[1],
+						[](float input, double inputGain) { return static_cast<double>(input * inputGain); });
+
+					std::transform(std::execution::unseq, amplifiedInput[0], amplifiedInput[0] + data.numSamples, amplifiedInput[1], rectifiedSignal,
+						[](double left, double right) { return 0.5 * (abs(left) + abs(right)); });
 
 					auto& difference = rectifiedSignal;
 
 					std::transform(std::execution::unseq, rectifiedSignal, rectifiedSignal + data.numSamples, paramValue[thresholdId], difference, 
-						[](float signal, double threshold) { return min(0.0, threshold - atodb(signal)); });
+						[](double signal, double threshold) { return min(0.0, threshold - atodb(signal)); });
 
 					auto& attenuation = difference;
 
 					std::transform(std::execution::unseq, difference, difference + data.numSamples, paramValue[ratioId], attenuation, 
-						[](float diff, double ratio) { return dbtoa(diff * ratio); });
+						[](double diff, double ratio) { return dbtoa(diff * ratio); });
+
+					// Slide times
+					std::transform(std::execution::unseq, paramValue[attackId], paramValue[attackId] + data.numSamples, attackInSamples,
+						[&data](double attackMs) { return max(1.0, attackMs * 0.001 * data.processContext->sampleRate); });
+
+					std::transform(std::execution::unseq, paramValue[releaseId], paramValue[releaseId] + data.numSamples, releaseInSamples,
+						[&data](double releaseMs) { return max(1.0, releaseMs * 0.001 * data.processContext->sampleRate); });
+
+					// Apply sliding
+					auto& envelope = attenuation;
+
+					for (int s = 0; s < data.numSamples; ++s)
+					{
+						envelope[s] = slide(attenuation[s], envelopeZ1, attenuation[s] >= envelopeZ1 ? releaseInSamples[s] : attackInSamples[s]);
+						envelopeZ1 = envelope[s];
+					}
 
 					// Attenuated signal
 					// y = in * attenuation
-					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, attenuation, (float*)out[0], std::multiplies<float>());
-					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, attenuation, (float*)out[1], std::multiplies<float>());
+					std::transform(std::execution::unseq, amplifiedInput[0], amplifiedInput[0] + data.numSamples, envelope, wetSignal[0], std::multiplies<double>());
+					std::transform(std::execution::unseq, amplifiedInput[1], amplifiedInput[1] + data.numSamples, envelope, wetSignal[1], std::multiplies<double>());
 					
 					 //Mix
 					 //y = mix * outGain * out + (1 - mix) * in
-					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, paramValue[outGainId], (float*)out[0], 
-						[](float out, double gain) { return out * gain; });
-
-					std::transform(std::execution::unseq, (float*)out[1], (float*)out[1] + data.numSamples, paramValue[outGainId], (float*)out[1],
-						[](float out, double gain) { return out * gain; });
+					std::transform(std::execution::unseq, wetSignal[0], wetSignal[0] + data.numSamples, paramValue[outGainId], wetSignal[0], std::multiplies<double>());
+					std::transform(std::execution::unseq, wetSignal[1], wetSignal[1] + data.numSamples, paramValue[outGainId], wetSignal[1], std::multiplies<double>());
 					
-					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, paramValue[mixId], (float*)out[0], 
-						[](float out, double mix) { return out * mix; });
+					std::transform(std::execution::unseq, wetSignal[0], wetSignal[0] + data.numSamples, paramValue[mixId], wetSignal[0], std::multiplies<double>());
+					std::transform(std::execution::unseq, wetSignal[1], wetSignal[1] + data.numSamples, paramValue[mixId], wetSignal[1], std::multiplies<double>());
 
-					std::transform(std::execution::unseq, (float*)out[1], (float*)out[1] + data.numSamples, paramValue[mixId], (float*)out[1], 
-						[](float out, double mix) { return out * mix; });
-
+					// Mix takes the untouched input signal (not affected by input gain)
 					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[mixId], (float*)in[0], 
-						[](float input, double mix) { return input * (1.0 - mix); });
+						[](float input, double mix) { return static_cast<float>(input * (1.0 - mix)); });
 
 					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, paramValue[mixId], (float*)in[1],
-						[](float input, double mix) { return input * (1.0 - mix); });
+						[](float input, double mix) { return static_cast<float>(input * (1.0 - mix)); });
 
-					std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, (float*)in[0], (float*)out[0], std::plus<float>());
-					std::transform(std::execution::unseq, (float*)out[1], (float*)out[1] + data.numSamples, (float*)in[1], (float*)out[1], std::plus<float>());
+					std::transform(std::execution::unseq, wetSignal[0], wetSignal[0] + data.numSamples, (float*)in[0], (float*)out[0],
+						[](double wet, float dry) { return static_cast<float>(wet + dry); });
+
+					std::transform(std::execution::unseq, wetSignal[1], wetSignal[1] + data.numSamples, (float*)in[1], (float*)out[1],
+						[](double wet, float dry) { return static_cast<float>(wet + dry); });
 				}
 				else if (data.inputs[0].numChannels == 1)
 				{
