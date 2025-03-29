@@ -10,6 +10,8 @@ public:
 		Lowpass,
 		Highpass,
 		Allpass,
+		Lowshelf,
+		Highshelf,
 		NumModes
 	};
 
@@ -20,6 +22,8 @@ public:
 		out[Lowpass] = &TPTFilter::lowpass;
 		out[Highpass] = &TPTFilter::highpass;
 		out[Allpass] = &TPTFilter::allpass;
+		out[Highshelf] = &TPTFilter::highshelf;
+		out[Lowshelf] = &TPTFilter::lowshelf;
 	};
 
 	virtual void setSampleRate(double samplerate) 
@@ -48,6 +52,8 @@ public:
 	virtual inline double lowpass() { return i1y; }
 	virtual inline double highpass() { return i1x - lowpass(); }
 	virtual inline double allpass() { return lowpass() - highpass(); }
+	virtual inline double highshelf() { return lowpass() + gain * highpass(); }
+	virtual inline double lowshelf() { return gain * lowpass() + highpass(); }
 
 	double cutoff = 1000;
 
@@ -68,6 +74,9 @@ public:
 
 	// Coefficients
 	double g = 0;
+
+	// Gain for shelf filters
+	double gain = 1.0;
 
 protected:
 	int mode = Lowpass;

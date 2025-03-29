@@ -32,6 +32,14 @@ inline static T funLogReverse(const T input, const T curve = -0.25)
 	return (input - input * curve) / (input - curve);
 }
 
+template <typename T>
+inline static T saturate(const T input, const T factor)
+{
+	assert(factor >= 0.1 && factor <= 1.0);
+
+	return input / ((1.0 - factor) * input * input + factor);
+}
+
 // y = z1 + (x - z1) / steps
 template <typename T>
 inline static T slide(const T input, const T prevOutput, const T steps) {

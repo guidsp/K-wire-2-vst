@@ -19,6 +19,7 @@
 			"OutGain": "7",
 			"Ratio": "3",
 			"Release": "5",
+			"Shelf": "8",
 			"Threshold": "2"
 		},
 		"custom": {
@@ -41,7 +42,7 @@
 				"SplitViewSize_1_1": "0.508100147275404978586266224738210439682",
 				"SplitViewSize_2_0": "0.620377978635990090516827422106871381402",
 				"SplitViewSize_2_1": "0.3755135579293344405549248676834395155311",
-				"TabSwitchValue": "4",
+				"TabSwitchValue": "0",
 				"Version": "1"
 			},
 			"UIAttributesController": {},
@@ -52,7 +53,7 @@
 				"SelectedRow": "0"
 			},
 			"UITagsDataSource": {
-				"SelectedRow": "4"
+				"SelectedRow": "7"
 			},
 			"UIColorsDataSource": {
 				"SelectedRow": "-1"
@@ -70,7 +71,7 @@
 					"mouse-enabled": "true",
 					"opacity": "1",
 					"origin": "0, 0",
-					"size": "510, 290",
+					"size": "500, 280",
 					"transparent": "false",
 					"wants-focus": "false"
 				},
@@ -127,7 +128,7 @@
 									"immediate-text-change": "false",
 									"max-value": "1",
 									"min-value": "0",
-									"mouse-enabled": "true",
+									"mouse-enabled": "false",
 									"opacity": "1",
 									"origin": "0, 100",
 									"round-rect-radius": "6",
@@ -150,7 +151,7 @@
 									"transparent": "false",
 									"uidesc-label": "InLabel",
 									"value-precision": "2",
-									"wants-focus": "true",
+									"wants-focus": "false",
 									"wheel-inc-value": "0.1"
 								}
 							}
@@ -208,7 +209,7 @@
 									"immediate-text-change": "false",
 									"max-value": "1",
 									"min-value": "0",
-									"mouse-enabled": "true",
+									"mouse-enabled": "false",
 									"opacity": "1",
 									"origin": "0, 100",
 									"round-rect-radius": "6",
@@ -231,7 +232,7 @@
 									"transparent": "false",
 									"uidesc-label": "ThreshLabel",
 									"value-precision": "2",
-									"wants-focus": "true",
+									"wants-focus": "false",
 									"wheel-inc-value": "0.1"
 								}
 							}
@@ -289,7 +290,7 @@
 									"immediate-text-change": "false",
 									"max-value": "1",
 									"min-value": "0",
-									"mouse-enabled": "true",
+									"mouse-enabled": "false",
 									"opacity": "1",
 									"origin": "0, 100",
 									"round-rect-radius": "6",
@@ -312,7 +313,7 @@
 									"transparent": "false",
 									"uidesc-label": "GainLabel",
 									"value-precision": "2",
-									"wants-focus": "true",
+									"wants-focus": "false",
 									"wheel-inc-value": "0.1"
 								}
 							}
@@ -370,7 +371,7 @@
 									"immediate-text-change": "false",
 									"max-value": "1",
 									"min-value": "0",
-									"mouse-enabled": "true",
+									"mouse-enabled": "false",
 									"opacity": "1",
 									"origin": "0, 100",
 									"round-rect-radius": "6",
@@ -393,7 +394,7 @@
 									"transparent": "false",
 									"uidesc-label": "OutLabel",
 									"value-precision": "2",
-									"wants-focus": "true",
+									"wants-focus": "false",
 									"wheel-inc-value": "0.1"
 								}
 							}
@@ -451,7 +452,7 @@
 									"immediate-text-change": "false",
 									"max-value": "1",
 									"min-value": "0",
-									"mouse-enabled": "true",
+									"mouse-enabled": "false",
 									"opacity": "1",
 									"origin": "0, 100",
 									"round-rect-radius": "6",
@@ -474,7 +475,7 @@
 									"transparent": "false",
 									"uidesc-label": "MixLabel",
 									"value-precision": "2",
-									"wants-focus": "true",
+									"wants-focus": "false",
 									"wheel-inc-value": "0.1"
 								}
 							}
@@ -532,7 +533,7 @@
 									"immediate-text-change": "false",
 									"max-value": "1",
 									"min-value": "0",
-									"mouse-enabled": "true",
+									"mouse-enabled": "false",
 									"opacity": "1",
 									"origin": "0, 100",
 									"round-rect-radius": "6",
@@ -555,7 +556,7 @@
 									"transparent": "false",
 									"uidesc-label": "AttackLabel",
 									"value-precision": "2",
-									"wants-focus": "true",
+									"wants-focus": "false",
 									"wheel-inc-value": "0.1"
 								}
 							}
@@ -613,7 +614,7 @@
 									"immediate-text-change": "false",
 									"max-value": "1",
 									"min-value": "0",
-									"mouse-enabled": "true",
+									"mouse-enabled": "false",
 									"opacity": "1",
 									"origin": "0, 100",
 									"round-rect-radius": "6",
@@ -636,7 +637,7 @@
 									"transparent": "false",
 									"uidesc-label": "CrossLabel",
 									"value-precision": "2",
-									"wants-focus": "true",
+									"wants-focus": "false",
 									"wheel-inc-value": "0.1"
 								}
 							}
@@ -694,7 +695,7 @@
 									"immediate-text-change": "false",
 									"max-value": "1",
 									"min-value": "0",
-									"mouse-enabled": "true",
+									"mouse-enabled": "false",
 									"opacity": "1",
 									"origin": "0, 100",
 									"round-rect-radius": "6",
@@ -717,7 +718,7 @@
 									"transparent": "false",
 									"uidesc-label": "ReleaseLabel",
 									"value-precision": "2",
-									"wants-focus": "true",
+									"wants-focus": "false",
 									"wheel-inc-value": "0.1"
 								}
 							}

@@ -59,10 +59,12 @@ protected:
 	double* paramValue[nParams];
 	ParamPointQueue paramPointQueue[nParams];
 
-	double amplifiedInput[2][MAX_BUFFER_SIZE];
-	double filteredInput[2][MAX_BUFFER_SIZE];
-	double wetSignal[2][MAX_BUFFER_SIZE];
 	double rectifiedSignal[MAX_BUFFER_SIZE];
+	double filteredInput[2][MAX_BUFFER_SIZE];
+	double amplifiedInput[2][MAX_BUFFER_SIZE];
+	double midSide[2][MAX_BUFFER_SIZE];
+	double wetSignal[2][MAX_BUFFER_SIZE];
+
 	double attackInSamples[MAX_BUFFER_SIZE];
 	double releaseInSamples[MAX_BUFFER_SIZE];
 	double envelopeZ1 = 1.0;
