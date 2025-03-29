@@ -127,7 +127,7 @@ tresult PLUGIN_API Kwire2Controller::getParamStringByValue(Vst::ParamID tag, Vst
 	if (param)
 	{
 		std::stringstream display;
-		display << std::fixed << std::setprecision(param->stepCount == 0 ? 2 : 0) << param->normalisedToPlain(valueNormalized);
+		display << std::fixed << std::setprecision(param->stepCount == 0 ? 2 : 0) << param->normalisedToPlain(valueNormalized) << " " << param->units;
 
 		bool convert = Steinberg::Vst::StringConvert::convert(display.str(), string);
 		return convert ? kResultTrue : kResultFalse;
@@ -178,10 +178,10 @@ void Kwire2Controller::makeParameters()
 
 		// Convert strings to UTF-16 encoded std::u16string
 		const std::u16string utf16Title = toU16String(param->title);
-		const std::u16string utf16Units = toU16String(param->units);
+		const std::u16string uft16Units = toU16String(" ");
 		const std::u16string utf16ShortTitle = toU16String(param->shortTitle);
 
-		Vst::RangeParameter* p = new Vst::RangeParameter(utf16Title.c_str(), i, utf16Units.c_str(),
+		Vst::RangeParameter* p = new Vst::RangeParameter(utf16Title.c_str(), i, uft16Units.c_str(),
 			0, 1, param->plainToNormalised(param->defaultPlain), param->stepCount, param->flags, 0, utf16ShortTitle.c_str());
 
 		p->setPrecision(param->stepCount == 0 ? 2 : 0);

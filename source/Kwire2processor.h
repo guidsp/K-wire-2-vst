@@ -6,6 +6,7 @@
 #include "parameters.h"
 #include "ParamPointQueue.h"
 #include "TPTSVF.h"
+#include "Distortion.h"
 
 namespace Kwire2 {
 
@@ -70,6 +71,7 @@ protected:
 	double envelopeZ1 = 1.0;
 
 	TPTSVF filter[2];
+	Distortion distortion[2];
 };
 
 //------------------------------------------------------------------------

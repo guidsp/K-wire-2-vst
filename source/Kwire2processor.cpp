@@ -44,7 +44,10 @@ namespace Kwire2 {
 		sampleRate = sr;
 
 		for (int c = 0; c < 2; ++c)
+		{
 			filter[c].setSampleRate(sampleRate);
+			distortion[c].setSampleRate(sampleRate);
+		}
 	}
 
 	//------------------------------------------------------------------------
@@ -263,7 +266,7 @@ namespace Kwire2 {
 
 					for (int s = 0; s < data.numSamples; ++s)
 					{
-						envelope[s] = slide(attenuation[s], envelopeZ1, attenuation[s] >= envelopeZ1 ? releaseInSamples[s] : attackInSamples[s]/* * (1.0 + attackTimeEnvelope)*/);
+						envelope[s] = slide(attenuation[s], envelopeZ1, attenuation[s] >= envelopeZ1 ? releaseInSamples[s] : attackInSamples[s]);
 						envelopeZ1 = envelope[s];
 					}
 
@@ -276,13 +279,13 @@ namespace Kwire2 {
 					//#pragma omp parallel
 					for (int c = 0; c < 2; ++c)
 					{
+						// Saturate
+						for (int s = 0; s < data.numSamples; ++s)
+							midSide[c][s] = distortion[c].process(midSide[c][s]);
+
 						// Attenuated signal
 						// y = in * attenuation
 						std::transform(std::execution::unseq, midSide[c], midSide[c] + data.numSamples, envelope, midSide[c], std::multiplies<double>());
-
-						// Saturate
-						//std::transform(std::execution::unseq, wetSignal[c], wetSignal[c] + data.numSamples, envelope, wetSignal[c],
-						//	[](double signal, double envelope) { return saturate(signal, max(0.1, envelope)); });
 					}
 					
 					// MS -> LR
