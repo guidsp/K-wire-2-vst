@@ -27,7 +27,6 @@ struct CustomParameter
 		maxPlain(max_),
 		defaultPlain(defaultPlain_),
 		range(max_ - min_),
-		plainValue(defaultPlain_),
 		stepCount(stepCount_),
 		skewFactor(skewFactor_),
 		plainToRealFunc(plainToRealFunc_),
@@ -53,7 +52,7 @@ struct CustomParameter
 			reverseModifier = [this](double normalised) { return funLogReverse(normalised, skewFactor); };
 		}
 
-		normalisedValue = plainToNormalised(plainValue);
+		normalisedValue = plainToNormalised(defaultPlain);
 		realValue = normalisedToReal(normalisedValue);
 
 		prepareBuffer();
@@ -142,8 +141,7 @@ struct CustomParameter
 	const int stepCount;
 	const int32_t flags;
 
-	double plainValue = 0.0,
-		normalisedValue = 0.0,
+	double normalisedValue = 0.0,
 		realValue = 0.0;
 
 	double buffer[MAX_BUFFER_SIZE];

@@ -1,4 +1,5 @@
 #include <sstream>
+#include "base/source/fstreamer.h"
 #include "vstgui/plugin-bindings/vst3editor.h"
 #include "public.sdk/source/vst/utility/stringconvert.h"
 #include "Kwire2controller.h"
@@ -51,18 +52,46 @@ tresult PLUGIN_API Kwire2Controller::setComponentState (IBStream* state)
 //------------------------------------------------------------------------
 tresult PLUGIN_API Kwire2Controller::setState (IBStream* state)
 {
-	// Here you get the state of the controller
+	IBStreamer streamer(state, kLittleEndian);
+	std::string paramTitle;
 
-	return kResultTrue;
+	while (true)
+	{
+		auto identifier = streamer.readStr8();
+
+		if (!identifier)
+			break;
+
+		paramTitle = std::string(identifier);
+
+		CustomParameter* parameter = parameterWithTitle(paramTitle);
+
+		if (!parameter)
+			continue;
+
+		double value;
+
+		if (!streamer.readDouble(value))
+			continue;
+
+		setParamNormalized(parameter->id, parameter->plainToNormalised(value));
+	}
+
+	return kResultOk;
 }
 
 //------------------------------------------------------------------------
 tresult PLUGIN_API Kwire2Controller::getState (IBStream* state)
 {
-	// Here you are asked to deliver the state of the controller (if needed)
-	// Note: the real state of your plug-in is saved in the processor
+	IBStreamer streamer(state, kLittleEndian);
 
-	return kResultTrue;
+	for (CustomParameter& parameter : customParameters)
+	{
+		if (!streamer.writeStr8(parameter.title.c_str())) return kResultFalse;
+		if (!streamer.writeDouble(parameter.normalisedToPlain(parameter.normalisedValue))) return kResultFalse;
+	}
+
+	return kResultOk;
 }
 
 //------------------------------------------------------------------------

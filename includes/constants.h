@@ -9,7 +9,6 @@
 //=========================================
 // Constants
 
-static constexpr int MAX_CHANNELS = 2;
 static constexpr int MAX_BUFFER_SIZE = 4096;
 
 //=========================================

@@ -41,6 +41,8 @@ smtg_add_vst3plugin(${PROJECT_NAME}
 	includes/LookupTable.h
 	includes/CustomParameter.h
 	includes/ParamPointQueue.h
+	includes/TPTFilter.h
+	includes/TPTSVF.h
 )
 
 # Add the includes directory to the target

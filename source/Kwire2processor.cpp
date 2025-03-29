@@ -1,5 +1,6 @@
 #pragma once
 
+#include <omp.h>
 #include <windows.h>
 #include <algorithm>
 #include <execution>
@@ -25,6 +26,11 @@ namespace Kwire2 {
 			paramValue[p] = customParameters[p].buffer;
 
 		std::fill(rectifiedSignal, rectifiedSignal + MAX_BUFFER_SIZE, 0);
+
+		filter[0].setMode(TPTSVF::Highpass);
+		filter[0].setResonance(0);
+		filter[1].setMode(TPTSVF::Highpass);
+		filter[1].setResonance(0);
 	}
 
 	//------------------------------------------------------------------------
@@ -35,6 +41,9 @@ namespace Kwire2 {
 	void Kwire2Processor::setSampleRate(double sr)
 	{
 		sampleRate = sr;
+
+		filter[0].setSampleRate(sampleRate);
+		filter[1].setSampleRate(sampleRate);
 	}
 
 	//------------------------------------------------------------------------
@@ -216,18 +225,28 @@ namespace Kwire2 {
 				if (data.inputs[0].numChannels == 2)
 				{					
 					////////////
-					// Crossover filter
-					
-					// Envelope follower 
-					// y = 1.0 - ratio * dbtoa(thresholdInDb - atodb(0.5 * (abs(inL) + abs(inR))));
+					// HP filter and envelope follower
 
-					std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[inGainId], amplifiedInput[0],
-						[](float input, double inputGain) { return static_cast<double>(input * inputGain); });
+					//#pragma omp parallel
+					for (int c = 0; c < 2; ++c)
+					{
+						std::transform(std::execution::unseq, static_cast<float*>(in[c]), static_cast<float*>(in[c]) + data.numSamples, paramValue[inGainId], amplifiedInput[c],
+							[](float input, double gain) { return static_cast<double>(input * gain); });
 
-					std::transform(std::execution::unseq, (float*)in[1], (float*)in[1] + data.numSamples, paramValue[inGainId], amplifiedInput[1],
-						[](float input, double inputGain) { return static_cast<double>(input * inputGain); });
+						for (int s = 0; s < data.numSamples; ++s)
+						{
+							const double cutoff = paramValue[crossoverId][s];
 
-					std::transform(std::execution::unseq, amplifiedInput[0], amplifiedInput[0] + data.numSamples, amplifiedInput[1], rectifiedSignal,
+							if (cutoff != filter[c].cutoff)
+								filter[c].setCutoff(cutoff);
+
+							filteredInput[c][s] = filter[c].process(amplifiedInput[c][s]);
+						}
+					}
+
+					// Envelope follower
+					// y = 1.0 - ratio * dbtoa(thresholdInDb - atodb(0.5 * (abs(inL) + abs(inR))))
+					std::transform(std::execution::unseq, filteredInput[0], filteredInput[0] + data.numSamples, filteredInput[1], rectifiedSignal,
 						[](double left, double right) { return 0.5 * (abs(left) + abs(right)); });
 
 					auto& difference = rectifiedSignal;
@@ -336,8 +355,30 @@ namespace Kwire2 {
 	//------------------------------------------------------------------------
 	tresult PLUGIN_API Kwire2Processor::setState(IBStream* state)
 	{
-		// called when we load a preset, the model has to be reloaded
 		IBStreamer streamer(state, kLittleEndian);
+		std::string paramTitle;
+
+		while (true)
+		{
+			auto identifier = streamer.readStr8();
+
+			if (!identifier)
+				break;
+
+			paramTitle = std::string(identifier);
+
+			CustomParameter* parameter = parameterWithTitle(paramTitle);
+
+			if (!parameter)
+				continue;
+
+			double value;
+			
+			if (!streamer.readDouble(value))
+				continue;
+
+			parameter->update(parameter->plainToNormalised(value), MAX_BUFFER_SIZE);
+		}
 
 		return kResultOk;
 	}
@@ -345,8 +386,13 @@ namespace Kwire2 {
 	//------------------------------------------------------------------------
 	tresult PLUGIN_API Kwire2Processor::getState(IBStream* state)
 	{
-		// here we need to save the model
 		IBStreamer streamer(state, kLittleEndian);
+
+		for (CustomParameter& parameter : customParameters)
+		{
+			if (!streamer.writeStr8(parameter.title.c_str())) return kResultFalse;
+			if (!streamer.writeDouble(parameter.normalisedToPlain(parameter.normalisedValue))) return kResultFalse;
+		}
 
 		return kResultOk;
 	}
