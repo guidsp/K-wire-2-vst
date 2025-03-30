@@ -10,6 +10,7 @@
 // Constants
 
 static constexpr int MAX_BUFFER_SIZE = 4096;
+static constexpr int DISPLAY_VALUE_COUNT = 16;
 
 //=========================================
 // Functions

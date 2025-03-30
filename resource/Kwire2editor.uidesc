@@ -47,7 +47,7 @@
 			},
 			"UIAttributesController": {},
 			"UIViewCreatorDataSource": {
-				"SelectedRow": "9"
+				"SelectedRow": "28"
 			},
 			"UIBitmapsDataSource": {
 				"SelectedRow": "0"
@@ -71,7 +71,7 @@
 					"mouse-enabled": "true",
 					"opacity": "1",
 					"origin": "0, 0",
-					"size": "510, 330",
+					"size": "510, 340",
 					"transparent": "false",
 					"wants-focus": "false"
 				},
@@ -986,6 +986,21 @@
 									"wheel-inc-value": "0.1"
 								}
 							}
+						}
+					},
+					"CVuMeter": {
+						"attributes": {
+							"class": "CVuMeter",
+							"control-tag": "InGain",
+							"decrease-step-value": "0.1",
+							"num-led": "100",
+							"opacity": "1",
+							"orientation": "vertical",
+							"origin": "340, 10",
+							"size": "50, 320",
+							"transparent": "false",
+							"wants-focus": "false",
+							"wheel-inc-value": "0.1"
 						}
 					}
 				}

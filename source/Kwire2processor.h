@@ -70,6 +70,13 @@ protected:
 	double releaseInSamples[MAX_BUFFER_SIZE];
 	double envelopeZ1 = 1.0;
 
+	ParameterPoint attDisplay[DISPLAY_VALUE_COUNT];
+	inline static constexpr double attDecaySpeed = 1.0;
+
+	// Update rate (in seconds) for the non user parameters.
+	inline static constexpr double updateRate = 0.016667;
+	int updateThreshold = updateRate * 44100.0;
+
 	TPTSVF filter[2];
 	Distortion distortion[2];
 };
