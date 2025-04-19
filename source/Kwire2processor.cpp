@@ -22,15 +22,18 @@ namespace Kwire2 {
 		//--- set the wanted controller for our processor
 		setControllerClass(kKwire2ControllerUID);
 
-		for (int p = 0; p < nParams; ++p)
-			paramValue[p] = customParameters[p].buffer;
-
 		std::fill(rectifiedSignal, rectifiedSignal + MAX_BUFFER_SIZE, 0);
 
 		for (int c = 0; c < 2; ++c)
 		{
 			filter[c].setMode(TPTSVF::Highpass);
 			filter[c].setResonance(0);
+		}
+
+		for (int32 id = 0; id < nParams; ++id)
+		{
+			normalisedValue[id] = customParameters[id].plainToNormalised(customParameters[id].defaultPlain);
+			realValue[id] = customParameters[id].plainToReal(customParameters[id].defaultPlain);
 		}
 	}
 
@@ -140,10 +143,12 @@ namespace Kwire2 {
 	//------------------------------------------------------------------------
 	tresult PLUGIN_API Kwire2Processor::process(Vst::ProcessData& data)
 	{
-		assert(MAX_BUFFER_SIZE >= data.numSamples);
+		const int32 samples = data.numSamples;
 
-		for (int p = 0; p < nParams; ++p)
-			customParameters[p].prepareBuffer();
+		assert(MAX_BUFFER_SIZE >= samples);
+
+		for (int32 id = 0; id < nParams; ++id)
+			std::fill(paramValue[id], paramValue[id] + MAX_BUFFER_SIZE, realValue[id]);
 
 		if (data.processContext && sampleRate != data.processContext->sampleRate)
 			setSampleRate(data.processContext->sampleRate);
@@ -157,65 +162,41 @@ namespace Kwire2 {
 				if (auto* paramQueue = data.inputParameterChanges->getParameterData(index))
 				{
 					// Make clean point list from parameter queue.
-					const ParamID paramID = paramQueue->getParameterId();
+					const ParamID id = paramQueue->getParameterId();
 
 					// Only process incoming data from user parameters.
-					if (paramID >= nParams)
+					if (id >= nParams)
 						continue;
 
-					const int32 numPoints = paramPointQueue[paramID].fromParamQueue(paramQueue);
-					CustomParameter* param = &customParameters[paramID];
+					if (paramPointQueue[id].fromParamQueue(paramQueue) <= 0)
+						continue;
 
-					// TODO: Figure out how to handle sample accurate automation with lacking data.
-					if (true || numPoints == 1)
+					auto it = paramPointQueue[id].pointQueue.end();
+					--it;
+
+					const ParamValue val = it->second;
+
+					// Long ramp from start to end of the buffer.
+					if (val == normalisedValue[id])
 					{
-						// Received one parameter change point; long ramp from start to end of the buffer.
-						auto it = paramPointQueue[paramID].pointQueue.end();
-						--it;
-
-						param->update(it->second, data.numSamples);
+						std::fill(paramValue[id], paramValue[id] + MAX_BUFFER_SIZE, realValue[id]);
 					}
 					else
 					{
-						// Multiple points; make consecutive ramps between them.
-						int32 start = 0;
-						int32 end = 0;
-						ParamValue startValue = param->normalisedValue;
-
-						for (auto it = paramPointQueue[paramID].pointQueue.begin(); it != paramPointQueue[paramID].pointQueue.end(); ++it)
-						{
-							end = it->first;
-
-							// A ramp to 0 is an instant step; ignore.
-							if (end == 0)
-								continue;
-
-							const ParamValue targetValue = it->second;
-
-							if (std::next(it) == paramPointQueue[paramID].pointQueue.end())
+						std::transform(std::execution::unseq, paramValue[id], paramValue[id] + samples, paramValue[id],
+							[this, val, samples, id](double& value)
 							{
-								// If this is the last ramp, extend it to the end of the buffer.
-								end = data.numSamples - 1;
-							}
+								const auto index = &value - paramValue[id] + 1;
+								const double t = double(index) / double(samples);
+								return customParameters[id].normalisedToReal(herp(normalisedValue[id], val, t));
+							});
 
-							param->update(targetValue, start, end);
-
-							start = end;
-							startValue = targetValue;
-						}
-
-						if (end != (data.numSamples - 1))
-							param->update(param->normalisedValue, end, data.numSamples - 1);
+						normalisedValue[id] = val;
+						realValue[id] = paramValue[id][samples - 1];;
 					}
 				}
 			}
 		}
-
-		// Interval based visual parameter output.
-		static double attenuationValue = 1.0;
-		static int sampleCounter = 0;
-		// Display value element in the pre-allocated buffer to fill.
-		int attenuationValueIndex = 0;
 
 		void** in = getChannelBuffersPointer(processSetup, data.inputs[0]);
 		void** out = getChannelBuffersPointer(processSetup, data.outputs[0]);
@@ -245,7 +226,6 @@ namespace Kwire2 {
 						////////////
 						// HP filter and envelope follower
 
-						//#pragma omp parallel
 						for (int c = 0; c < 2; ++c)
 						{
 							std::transform(std::execution::unseq, static_cast<float*>(in[c]), static_cast<float*>(in[c]) + data.numSamples, paramValue[inGainId], amplifiedInput[c],
@@ -295,25 +275,7 @@ namespace Kwire2 {
 						{
 							envelope[s] = slide(attenuation[s], envelopeZ1, attenuation[s] >= envelopeZ1 ? releaseInSamples[s] : attackInSamples[s]);
 							envelopeZ1 = envelope[s];
-
-							// Envelope to send to controller
-							attenuationValue = min(1.0, attenuationValue + attDecaySpeed / double(sampleRate));
-							attenuationValue = min(envelope[s], attenuationValue);
-
-							if (sampleCounter == 0)
-							{
-								if (attenuationValueIndex < DISPLAY_VALUE_COUNT)
-								{
-									attDisplay[attenuationValueIndex].value = attenuationValue;
-									attDisplay[attenuationValueIndex].sampleOffset = s;
-
-									++attenuationValueIndex;
-								}
-							}
-
-							sampleCounter = (sampleCounter + 1) % updateThreshold;
 						}
-
 
 						// LR -> MS
 						std::transform(std::execution::unseq, amplifiedInput[0], amplifiedInput[0] + data.numSamples, amplifiedInput[1], midSide[0],
@@ -378,19 +340,6 @@ namespace Kwire2 {
 			}
 		}
 
-		// Output attenuation meter value.
-		if (data.outputParameterChanges && attenuationValueIndex > 0)
-		{
-			int32 index = 0;
-			IParamValueQueue* paramQueue = data.outputParameterChanges->addParameterData(attenuationId, index);
-
-			if (paramQueue)
-			{
-				for (int i = 0; i < attenuationValueIndex; ++i)
-					paramQueue->addPoint(attDisplay[i].sampleOffset, attDisplay[i].value, i);
-			}
-		}
-
 		return kResultOk;
 	}
 
@@ -417,29 +366,29 @@ namespace Kwire2 {
 	tresult PLUGIN_API Kwire2Processor::setState(IBStream* state)
 	{
 		IBStreamer streamer(state, kLittleEndian);
-		std::string paramTitle;
+		//std::string paramTitle;
 
-		while (true)
-		{
-			auto identifier = streamer.readStr8();
+		//while (true)
+		//{
+		//	auto identifier = streamer.readStr8();
 
-			if (!identifier)
-				break;
+		//	if (!identifier)
+		//		break;
 
-			paramTitle = std::string(identifier);
+		//	paramTitle = std::string(identifier);
 
-			CustomParameter* parameter = parameterWithTitle(paramTitle);
+		//	CustomParameter* parameter = parameterWithTitle(paramTitle);
 
-			if (!parameter)
-				continue;
+		//	if (!parameter)
+		//		continue;
 
-			double value;
-			
-			if (!streamer.readDouble(value))
-				continue;
+		//	double value;
+		//	
+		//	if (!streamer.readDouble(value))
+		//		continue;
 
-			parameter->update(parameter->plainToNormalised(value), MAX_BUFFER_SIZE);
-		}
+		//	parameter->update(parameter->plainToNormalised(value), MAX_BUFFER_SIZE);
+		//}
 
 		return kResultOk;
 	}
@@ -449,11 +398,11 @@ namespace Kwire2 {
 	{
 		IBStreamer streamer(state, kLittleEndian);
 
-		for (CustomParameter& parameter : customParameters)
-		{
-			if (!streamer.writeStr8(parameter.title.c_str())) return kResultFalse;
-			if (!streamer.writeDouble(parameter.normalisedToPlain(parameter.normalisedValue))) return kResultFalse;
-		}
+		//for (CustomParameter& parameter : customParameters)
+		//{
+		//	if (!streamer.writeStr8(parameter.title.c_str())) return kResultFalse;
+		//	if (!streamer.writeDouble(parameter.normalisedToPlain(parameter.normalisedValue))) return kResultFalse;
+		//}
 
 		return kResultOk;
 	}

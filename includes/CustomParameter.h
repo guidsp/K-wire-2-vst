@@ -11,12 +11,6 @@
 #include "constants.h"
 #include "LookupTable.h"
 
-struct ParameterPoint
-{
-	double value = 0.0;
-	int sampleOffset = -1;
-};
-
 struct CustomParameter 
 {
 	CustomParameter(short id_, const char* title_, const char* shortTitle_ = "", const char* units_ = "",
@@ -35,7 +29,7 @@ struct CustomParameter
 		range(max_ - min_),
 		stepCount(stepCount_),
 		skewFactor(skewFactor_),
-		plainToRealFunc(plainToRealFunc_),
+		plainToReal(plainToRealFunc_),
 		flags(flags_)
 	{
 		assert(stepCount == 0 || stepCount == int(maxPlain - minPlain));
@@ -45,66 +39,11 @@ struct CustomParameter
 			modifier = [this](double normalised) { return funLog(normalised, skewFactor); };
 			reverseModifier = [this](double normalised) { return funLogReverse(normalised, skewFactor); };
 		}
-
-		normalisedValue = plainToNormalised(defaultPlain);
-		realValue = normalisedToReal(normalisedValue);
-
-		prepareBuffer();
 	};
-
-	void prepareBuffer() 
-	{
-		std::fill(buffer, buffer + MAX_BUFFER_SIZE, realValue);
-	}
-
-	// Fills the buffer with a ramp from the previous real paramValue to the new real paramValue.
-	inline void update(const double normalised, const int frames) 
-	{
-		if (normalisedValue == normalised)
-		{
-			prepareBuffer();
-		}
-		else
-		{
-			std::transform(std::execution::unseq, buffer, buffer + frames, buffer, [this, normalised, frames](double& value)
-			{
-				const auto index = &value - buffer + 1;
-				const double t = double(index) / double(frames);
-				return normalisedToReal(herp(normalisedValue, normalised, t));
-			});
-
-			normalisedValue = normalised;
-			realValue = buffer[frames - 1];
-		}
-	}
-
-	// Creates a ramp from current real paramValue to target paramValue between start and end.
-	inline void update(const double normalised, const int start, const int end)
-	{
-		if (normalisedValue == normalised)
-		{
-			std::fill(buffer + start, buffer + end + 1, realValue);
-		}
-		else
-		{
-			const double range = max(1, end - start);
-
-			std::transform(std::execution::unseq, buffer + start, buffer + end + 1, buffer + start, [this, normalised, start, range](double& value)
-			{
-				const auto index = &value - (buffer + start) + 1;
-				const double t = double(index) / range;
-
-				return normalisedToReal(herp(normalisedValue, normalised, t));
-			});
-
-			normalisedValue = normalised;
-			realValue = buffer[end];
-		}
-	}
 
 	inline const double normalisedToReal(const double normalised) 
 	{
-		return plainToRealFunc(normalisedToPlain(normalised));
+		return plainToReal(normalisedToPlain(normalised));
 	}
 
 	inline const double normalisedToPlain(const double normalised)
@@ -135,13 +74,8 @@ struct CustomParameter
 	const int stepCount;
 	const int32_t flags;
 
-	double normalisedValue = 0.0,
-		realValue = 0.0;
-
-	double buffer[MAX_BUFFER_SIZE];
-
 	// Convert the plain paramValue to a working paramValue (eg. db to linear gain).
-	std::function<const double(const double plain)> plainToRealFunc;
+	std::function<const double(const double plain)> plainToReal;
 
 	// Modifies the distribution. Always works on 0 - 1.
 	std::function<const double(const double normalised)> modifier = [](double normalised) { return normalised; };

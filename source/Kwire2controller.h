@@ -5,6 +5,13 @@
 #pragma once
 
 #include "public.sdk/source/vst/vsteditcontroller.h"
+#include "public.sdk/source/vst/utility/stringconvert.h"
+
+#include "CustomParameter.h"
+#include "parameters.h"
+
+using namespace Steinberg;
+using namespace Steinberg::Vst;
 
 namespace Kwire2 {
 
@@ -49,7 +56,16 @@ public:
 
 //------------------------------------------------------------------------
 protected:
-	void makeParameters();
+	CustomParameter* parameterWithTitle(const std::string name)
+	{
+		for (ParamID id = 0; id < nParams; ++id)
+		{
+			if (customParameters[id].title == name)
+				return &customParameters[id];
+		}
+
+		return nullptr;
+	}
 };
 
 //------------------------------------------------------------------------

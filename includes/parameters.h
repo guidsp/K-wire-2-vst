@@ -29,8 +29,7 @@ enum ParameterIDs {
 };
 
 enum InternalParameterIDs {
-	attenuationId = nParams,
-	nTotalParams
+	nTotalParams = nParams
 };
 
 static CustomParameter customParameters[nTotalParams] = {
@@ -41,8 +40,7 @@ static CustomParameter customParameters[nTotalParams] = {
 	CustomParameter(attackId, "Attack", "Attack", "ms", 0.01, 50, 10, 0, -0.08),
 	CustomParameter(releaseId, "Release", "Release", "ms", 1, 200, 25, 0, -0.08),
 	CustomParameter(mixId, "Mix", "Mix", "%", 0, 100, 100, 0, 0, [](double plain) { return plain * 0.01; }),
-	CustomParameter(outGainId, "Output", "Out", "dB", -24, 24, 0, 0, 0, [](double plain) { return dbtoa(plain); }),
-	CustomParameter(attenuationId, "Attenuation", "Att", "", 0, 1, 1, 0, 0, [](double plain) { return plain; }, Steinberg::Vst::ParameterInfo::ParameterFlags::kIsHidden)
+	CustomParameter(outGainId, "Output", "Out", "dB", -24, 24, 0, 0, 0, [](double plain) { return dbtoa(plain); })
 };
 
 static CustomParameter* parameterWithTitle(const std::string name)

@@ -1,12 +1,12 @@
 #include <sstream>
 #include "base/source/fstreamer.h"
 #include "vstgui/plugin-bindings/vst3editor.h"
-#include "public.sdk/source/vst/utility/stringconvert.h"
 #include "Kwire2controller.h"
 #include "Kwire2cids.h"
 #include "parameters.h"
 
 using namespace Steinberg;
+using namespace Steinberg::Vst;
 
 namespace Kwire2 {
 
@@ -25,7 +25,23 @@ tresult PLUGIN_API Kwire2Controller::initialize (FUnknown* context)
 	}
 
 	// Here you could register some parameters
-	makeParameters();
+	for (int i = 0; i < nParams; ++i)
+	{
+		CustomParameter& param = customParameters[i];
+
+		// Convert strings to UTF-16 encoded std::u16string
+		const std::u16string utf16Title = toU16String(param.title);
+		const std::u16string uft16Units = toU16String(" ");
+		const std::u16string utf16ShortTitle = toU16String(param.shortTitle);
+
+		RangeParameter* p = new RangeParameter(utf16Title.c_str(), i, uft16Units.c_str(),
+			0, 1, 0, param.stepCount, param.flags, 0, utf16ShortTitle.c_str());
+
+		p->getInfo().defaultNormalizedValue = param.plainToNormalised(param.defaultPlain);
+		p->setNormalized(p->getInfo().defaultNormalizedValue);
+		p->setPrecision(p->getInfo().stepCount == 0 ? 2 : 0);
+		parameters.addParameter(p);
+	}
 
 	return result;
 }
@@ -85,10 +101,14 @@ tresult PLUGIN_API Kwire2Controller::getState (IBStream* state)
 {
 	IBStreamer streamer(state, kLittleEndian);
 
-	for (CustomParameter& parameter : customParameters)
+	for (ParamID id = 0; id < nParams; ++id)
 	{
-		if (!streamer.writeStr8(parameter.title.c_str())) return kResultFalse;
-		if (!streamer.writeDouble(parameter.normalisedToPlain(parameter.normalisedValue))) return kResultFalse;
+		CustomParameter& param = customParameters[id];
+		
+		if (!streamer.writeStr8(param.title.c_str())) return kResultFalse;
+
+		Parameter* p = parameters.getParameter(id);
+		if (!streamer.writeDouble(param.normalisedToPlain(p->getNormalized()))) return kResultFalse;
 	}
 
 	return kResultOk;
@@ -122,12 +142,11 @@ Steinberg::Vst::ParamValue Kwire2Controller::getParamNormalized(Steinberg::Vst::
 //------------------------------------------------------------------------
 tresult PLUGIN_API Kwire2Controller::getParamStringByValue(Vst::ParamID tag, Vst::ParamValue valueNormalized, Vst::String128 string)
 {
-	CustomParameter* param = &customParameters[tag];
-
-	if (param)
+	if (tag >= 0 || tag < nParams)
 	{
+		CustomParameter& param = customParameters[tag];
 		std::stringstream display;
-		display << std::fixed << std::setprecision(param->stepCount == 0 ? 2 : 0) << param->normalisedToPlain(valueNormalized) << " " << param->units;
+		display << std::fixed << std::setprecision(param.stepCount == 0 ? 2 : 0) << param.normalisedToPlain(valueNormalized) << " " << param.units;
 
 		bool convert = Steinberg::Vst::StringConvert::convert(display.str(), string);
 		return convert ? kResultTrue : kResultFalse;
@@ -141,16 +160,15 @@ tresult PLUGIN_API Kwire2Controller::getParamValueByString(Vst::ParamID tag, Vst
 {
 	// called by host to get a normalized value from a string representation of a specific parameter
 	// (without having to set the value!)
-	CustomParameter* param = &customParameters[tag];
-
-	if (param)
+	if (tag >= 0 || tag < nParams)
 	{
+		CustomParameter& param = customParameters[tag];
 		std::string str;
 		bool convert = Steinberg::Vst::StringConvert::convert(str, string);
 
 		if (convert)
 		{
-			valueNormalized = param->plainToNormalised(std::stod(str));
+			valueNormalized = param.plainToNormalised(std::stod(str));
 
 			return kResultTrue;
 		}
@@ -167,26 +185,6 @@ Steinberg::Vst::ParamValue Kwire2Controller::normalizedParamToPlain(Steinberg::V
 Steinberg::Vst::ParamValue Kwire2Controller::plainParamToNormalized(Steinberg::Vst::ParamID tag, Steinberg::Vst::ParamValue plainValue)
 {
 	return EditControllerEx1::plainParamToNormalized(tag, plainValue);
-}
-
-// Fix defaults being warped with modifier.
-void Kwire2Controller::makeParameters()
-{
-	for (int i = 0; i < nParams; ++i) 
-	{
-		CustomParameter* param = &customParameters[i];
-
-		// Convert strings to UTF-16 encoded std::u16string
-		const std::u16string utf16Title = toU16String(param->title);
-		const std::u16string uft16Units = toU16String(" ");
-		const std::u16string utf16ShortTitle = toU16String(param->shortTitle);
-
-		Vst::RangeParameter* p = new Vst::RangeParameter(utf16Title.c_str(), i, uft16Units.c_str(),
-			0, 1, param->plainToNormalised(param->defaultPlain), param->stepCount, param->flags, 0, utf16ShortTitle.c_str());
-
-		p->setPrecision(param->stepCount == 0 ? 2 : 0);
-		parameters.addParameter(p);
-	}
 }
 
 //------------------------------------------------------------------------

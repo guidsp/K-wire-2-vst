@@ -1,5 +1,10 @@
 #pragma once
 
+#include "public.sdk/source/vst/vsteditcontroller.h"
+#include "pluginterfaces/vst/ivsteditcontroller.h"
+#include "pluginterfaces/vst/ivstparameterchanges.h"
+#include <stdlib.h>
+
 using namespace Steinberg;
 using namespace Steinberg::Vst;
 
@@ -8,7 +13,7 @@ struct ParamPointQueue
 public:
 	// This function creates a clean point list from an IParamValueQueue,
 	// meaning no elements share the same sampleOffset.
-	int32 fromParamQueue(Steinberg::Vst::IParamValueQueue* paramQueue)
+	int32 fromParamQueue(IParamValueQueue* paramQueue)
 	{
 		assert(paramQueue);
 

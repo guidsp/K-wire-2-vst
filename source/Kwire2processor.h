@@ -57,7 +57,9 @@ protected:
 	void setSampleRate(double sr);
 	double sampleRate = 44100.0;
 
-	double* paramValue[nParams];
+	double paramValue[nParams][MAX_BUFFER_SIZE];
+	double normalisedValue[nParams] = { 0.0 };
+	double realValue[nParams] = { 0.0 };
 	ParamPointQueue paramPointQueue[nParams];
 
 	double rectifiedSignal[MAX_BUFFER_SIZE];
@@ -70,7 +72,6 @@ protected:
 	double releaseInSamples[MAX_BUFFER_SIZE];
 	double envelopeZ1 = 1.0;
 
-	ParameterPoint attDisplay[DISPLAY_VALUE_COUNT];
 	inline static constexpr double attDecaySpeed = 1.0;
 
 	// Update rate (in seconds) for the non user parameters.
