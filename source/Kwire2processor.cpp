@@ -288,7 +288,6 @@ namespace Kwire2 {
 						std::transform(std::execution::unseq, amplifiedInput[0], amplifiedInput[0] + data.numSamples, amplifiedInput[1], midSide[1],
 							[](double left, double right) { return (left - right) * 0.5; });
 
-						//#pragma omp parallel
 						for (int c = 0; c < 2; ++c)
 						{
 							// Attenuated signal
