@@ -54,6 +54,8 @@ public:
 
 //------------------------------------------------------------------------
 protected:
+	void setParameterNormalised(ParamID id, double value);
+	
 	void setSampleRate(double sr);
 	double sampleRate = 44100.0;
 
@@ -71,8 +73,6 @@ protected:
 	double attackInSamples[MAX_BUFFER_SIZE];
 	double releaseInSamples[MAX_BUFFER_SIZE];
 	double envelopeZ1 = 1.0;
-
-	inline static constexpr double attDecaySpeed = 1.0;
 
 	// Update rate (in seconds) for the non user parameters.
 	inline static constexpr double updateRate = 0.016667;

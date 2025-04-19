@@ -31,10 +31,7 @@ namespace Kwire2 {
 		}
 
 		for (int32 id = 0; id < nParams; ++id)
-		{
-			normalisedValue[id] = customParameters[id].plainToNormalised(customParameters[id].defaultPlain);
-			realValue[id] = customParameters[id].plainToReal(customParameters[id].defaultPlain);
-		}
+			setParameterNormalised(id, customParameters[id].plainToNormalised(customParameters[id].defaultPlain));
 	}
 
 	//------------------------------------------------------------------------
@@ -53,6 +50,15 @@ namespace Kwire2 {
 		}
 
 		updateThreshold = round(updateRate * sampleRate);
+	}
+
+	void Kwire2Processor::setParameterNormalised(ParamID id, double value)
+	{
+		assert(value >= 0.0 && value <= 1.0);
+		assert(id >= 0 && id < nParams);
+
+		normalisedValue[id] = value;
+		realValue[id] = customParameters[id].normalisedToReal(value);
 	}
 
 	//------------------------------------------------------------------------
@@ -191,8 +197,7 @@ namespace Kwire2 {
 								return customParameters[id].normalisedToReal(herp(normalisedValue[id], val, t));
 							});
 
-						normalisedValue[id] = val;
-						realValue[id] = paramValue[id][samples - 1];;
+						setParameterNormalised(id, val);
 					}
 				}
 			}
@@ -366,29 +371,29 @@ namespace Kwire2 {
 	tresult PLUGIN_API Kwire2Processor::setState(IBStream* state)
 	{
 		IBStreamer streamer(state, kLittleEndian);
-		//std::string paramTitle;
+		std::string paramTitle;
 
-		//while (true)
-		//{
-		//	auto identifier = streamer.readStr8();
+		while (true)
+		{
+			auto identifier = streamer.readStr8();
 
-		//	if (!identifier)
-		//		break;
+			if (!identifier)
+				break;
 
-		//	paramTitle = std::string(identifier);
+			paramTitle = std::string(identifier);
 
-		//	CustomParameter* parameter = parameterWithTitle(paramTitle);
+			CustomParameter* parameter = parameterWithTitle(paramTitle);
 
-		//	if (!parameter)
-		//		continue;
+			if (!parameter)
+				continue;
 
-		//	double value;
-		//	
-		//	if (!streamer.readDouble(value))
-		//		continue;
+			double value;
+			
+			if (!streamer.readDouble(value))
+				continue;
 
-		//	parameter->update(parameter->plainToNormalised(value), MAX_BUFFER_SIZE);
-		//}
+			setParameterNormalised(parameter->id, parameter->plainToNormalised(value));
+		}
 
 		return kResultOk;
 	}
@@ -398,11 +403,11 @@ namespace Kwire2 {
 	{
 		IBStreamer streamer(state, kLittleEndian);
 
-		//for (CustomParameter& parameter : customParameters)
-		//{
-		//	if (!streamer.writeStr8(parameter.title.c_str())) return kResultFalse;
-		//	if (!streamer.writeDouble(parameter.normalisedToPlain(parameter.normalisedValue))) return kResultFalse;
-		//}
+		for (CustomParameter& parameter : customParameters)
+		{
+			if (!streamer.writeStr8(parameter.title.c_str())) return kResultFalse;
+			if (!streamer.writeDouble(parameter.normalisedToPlain(normalisedValue[parameter.id]))) return kResultFalse;
+		}
 
 		return kResultOk;
 	}
