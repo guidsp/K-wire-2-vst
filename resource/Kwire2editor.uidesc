@@ -175,7 +175,7 @@
 									"corona-dash-dot": "false",
 									"corona-dash-dot-lengths": "1.26,0.1",
 									"corona-drawing": "true",
-									"corona-from-center": "true",
+									"corona-from-center": "false",
 									"corona-inset": "12",
 									"corona-inverted": "false",
 									"corona-line-cap-butt": "true",
