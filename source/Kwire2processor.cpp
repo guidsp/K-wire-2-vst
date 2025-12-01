@@ -115,7 +115,7 @@ namespace Kwire2 {
 			return kResultFalse;
 
 		if (auto* outBus = FCast<AudioBus>(audioOutputs.at(0)))
-			outBus->setName(STR16("Stereo In"));
+			outBus->setName(STR16("Stereo Out"));
 
 		return kResultTrue;
 	}
