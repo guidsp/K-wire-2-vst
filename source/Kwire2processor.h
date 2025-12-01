@@ -54,6 +54,9 @@ public:
 
 //------------------------------------------------------------------------
 protected:
+	template<typename SampleType>
+	void processAudio(void** in, void** out, int samples, double processSampleRate);
+
 	void setParameterNormalised(ParamID id, double value);
 	
 	void setSampleRate(double sr);
@@ -67,7 +70,6 @@ protected:
 	double rectifiedSignal[MAX_BUFFER_SIZE];
 	double filteredInput[2][MAX_BUFFER_SIZE];
 	double amplifiedInput[2][MAX_BUFFER_SIZE];
-	double midSide[2][MAX_BUFFER_SIZE];
 	double wetSignal[2][MAX_BUFFER_SIZE];
 
 	double attackInSamples[MAX_BUFFER_SIZE];

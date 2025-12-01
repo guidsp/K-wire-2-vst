@@ -1,5 +1,3 @@
-#pragma once
-
 #include <omp.h>
 #include <windows.h>
 #include <algorithm>
@@ -75,8 +73,8 @@ namespace Kwire2 {
 		}
 
 		//--- create Audio IO ------
-		addAudioInput(STR16("Stereo In"), Steinberg::Vst::SpeakerArr::kStereo);
-		addAudioOutput(STR16("Stereo Out"), Steinberg::Vst::SpeakerArr::kStereo);
+		addAudioInput(STR16("Stereo In"), Steinberg::Vst::SpeakerArr::kStereo, Steinberg::Vst::BusTypes::kMain);
+		addAudioOutput(STR16("Stereo Out"), Steinberg::Vst::SpeakerArr::kStereo, Steinberg::Vst::BusTypes::kMain);
 
 		return kResultOk;
 	}
@@ -100,64 +98,164 @@ namespace Kwire2 {
 	//------------------------------------------------------------------------
 	tresult PLUGIN_API Kwire2Processor::setBusArrangements(Steinberg::Vst::SpeakerArrangement* inputs, Steinberg::int32 numIns, Steinberg::Vst::SpeakerArrangement* outputs, Steinberg::int32 numOuts)
 	{
-		// Support any combination of mono and stereo in/out.
-
 		if (numOuts == 0 || numIns == 0)
 			return kResultFalse;
 
-		int32 inChannels = SpeakerArr::getChannelCount(inputs[0]);
+		const int32 inChannels = SpeakerArr::getChannelCount(inputs[0]);
+
+		if (inChannels != 2)
+			return kResultFalse;
 
 		if (auto* inBus = FCast<AudioBus>(audioInputs.at(0)))
-		{
-			switch (inChannels)
-			{
-			case 1:
-				inBus->setName(STR16("Mono In"));
-				break;
-			case 2:
-				inBus->setName(STR16("Stereo In"));
-				break;
-			default:
-				return kResultFalse;
-			}
+			inBus->setName(STR16("Stereo In"));
 
-			inBus->setArrangement(inputs[0]);
-		}
+		const int32 outChannels = SpeakerArr::getChannelCount(outputs[0]);
 
-		int32 outChannels = SpeakerArr::getChannelCount(outputs[0]);
+		if (outChannels != 2)
+			return kResultFalse;
 
 		if (auto* outBus = FCast<AudioBus>(audioOutputs.at(0)))
-		{
-			switch (outChannels)
-			{
-			case 1:
-				outBus->setName(STR16("Mono Out"));
-				break;
-			case 2:
-				outBus->setName(STR16("Stereo Out"));
-				break;
-			default:
-				return kResultFalse;
-			}
-
-			outBus->setArrangement(outputs[0]);
-		}
+			outBus->setName(STR16("Stereo In"));
 
 		return kResultTrue;
 	}
 
 	//------------------------------------------------------------------------
+
+	template<typename SampleType>
+	void Kwire2Processor::processAudio(void** in, void** out, const int samples, const double processSampleRate)
+	{
+		// HP filter and envelope follower
+		for (int c = 0; c < 2; ++c)
+		{
+			const SampleType* inputPtr = static_cast<const SampleType*>(in[c]);
+
+			for (int s = 0; s < samples; ++s)
+				amplifiedInput[c][s] = static_cast<double>(inputPtr[s]) * paramValue[inGainId][s];
+
+			// Saturate
+			distortion[c].process(amplifiedInput[c], samples);
+
+			for (int s = 0; s < samples; ++s)
+			{
+				const double cutoff = paramValue[crossoverId][s];
+
+				if (cutoff != filter[c].cutoff)
+					filter[c].setCutoff(cutoff);
+
+				filteredInput[c][s] = filter[c].process(amplifiedInput[c][s]);
+			}
+		}
+
+		// y = 1.0 - ratio * dbtoa(thresholdInDb - atodb(0.5 * (abs(inL) + abs(inR))))
+		for (int s = 0; s < samples; ++s)
+			rectifiedSignal[s] = abs(filteredInput[0][s]) + abs(filteredInput[1][s]);
+
+		auto& difference = rectifiedSignal;
+
+		for (int s = 0; s < samples; ++s)
+			difference[s] = min(0.0, paramValue[thresholdId][s] - atodb(rectifiedSignal[s]));
+
+		auto& attenuation = difference;
+
+		for (int s = 0; s < samples; ++s)
+			attenuation[s] = dbtoa(difference[s] * paramValue[ratioId][s]);
+
+		// Slide times
+		for (int s = 0; s < samples; ++s)
+			attackInSamples[s] = max(1.0, paramValue[attackId][s] * 0.001 * processSampleRate);
+
+		for (int s = 0; s < samples; ++s)
+			releaseInSamples[s] = max(1.0, paramValue[releaseId][s] * 0.001 * processSampleRate);
+
+		// Generate envelope
+		auto& envelope = attenuation;
+
+		for (int s = 0; s < samples; ++s)
+		{
+			envelope[s] = slide(attenuation[s], envelopeZ1, attenuation[s] >= envelopeZ1 ? releaseInSamples[s] : attackInSamples[s]);
+			envelopeZ1 = envelope[s];
+		}
+
+		// Attenuated signal
+		for (int c = 0; c < 2; ++c)
+		{
+			for (int s = 0; s < samples; ++s)
+				wetSignal[c][s] = amplifiedInput[c][s] * envelope[s];
+		}
+
+		// LR -> MS
+		for (int s = 0; s < samples; ++s)
+		{
+			const double mid = 0.5 * (wetSignal[0][s] + wetSignal[1][s]);
+			const double side = 0.5 * (wetSignal[0][s] - wetSignal[1][s]);
+
+			wetSignal[0][s] = mid;
+			wetSignal[1][s] = side;
+		}
+
+		// Soft-ish clipping
+		for (int c = 0; c < 2; ++c)
+		{
+			for (int s = 0; s < samples; ++s)
+			{	
+				constexpr double factor = 0.85;
+				const double q = max(0.0, paramValue[clipThresholdId][s] - (1.0 - factor));
+
+				const double clamped = std::clamp(wetSignal[c][s], -q, q);
+				const double out = clamped + cheapTanh((wetSignal[c][s] - clamped) / (1.0 - factor)) * (1.0 - factor);
+
+				wetSignal[c][s] = (1.0 - paramValue[clipMixId][s]) * wetSignal[c][s] + paramValue[clipMixId][s] * out;
+			}
+		}
+
+		// MS -> LR
+		for (int s = 0; s < samples; ++s)
+		{
+			const double mid = wetSignal[0][s];
+			const double side = wetSignal[1][s];
+
+			wetSignal[0][s] = mid + side;
+			wetSignal[1][s] = mid - side;
+		}
+
+		// Mix
+		// y = mix * outGain * out + (1 - mix) * in
+		for (int c = 0; c < 2; ++c)
+		{
+			for (int s = 0; s < samples; ++s)
+				wetSignal[c][s] *= paramValue[outGainId][s];
+
+			for (int s = 0; s < samples; ++s)
+				wetSignal[c][s] *= paramValue[mixId][s];
+
+			// Mix takes the untouched input signal (not affected by input gain)
+			SampleType* inputPtr = static_cast<SampleType*>(in[c]);
+
+			for (int s = 0; s < samples; ++s)
+				inputPtr[s] = static_cast<SampleType>(static_cast<double>(inputPtr[s]) * (1.0 - paramValue[mixId][s]));
+
+			SampleType* outputPtr = static_cast<SampleType*>(out[c]);
+
+			for (int s = 0; s < samples; ++s)
+				outputPtr[s] = static_cast<SampleType>(wetSignal[c][s] + static_cast<double>(inputPtr[s]));
+		}
+	}
+
 	tresult PLUGIN_API Kwire2Processor::process(Vst::ProcessData& data)
 	{
-		const int32 samples = data.numSamples;
+		assert(data.processContext != nullptr);
+
+		const int samples = data.numSamples;
+		const double processSampleRate = data.processContext->sampleRate;
 
 		assert(MAX_BUFFER_SIZE >= samples);
 
 		for (int32 id = 0; id < nParams; ++id)
 			std::fill(paramValue[id], paramValue[id] + MAX_BUFFER_SIZE, realValue[id]);
 
-		if (data.processContext && sampleRate != data.processContext->sampleRate)
-			setSampleRate(data.processContext->sampleRate);
+		if (data.processContext && sampleRate != processSampleRate)
+			setSampleRate(processSampleRate);
 
 		if (data.inputParameterChanges)
 		{
@@ -189,13 +287,11 @@ namespace Kwire2 {
 					}
 					else
 					{
-						std::transform(std::execution::unseq, paramValue[id], paramValue[id] + samples, paramValue[id],
-							[this, val, samples, id](double& value)
-							{
-								const auto index = &value - paramValue[id] + 1;
-								const double t = double(index) / double(samples);
-								return customParameters[id].normalisedToReal(herp(normalisedValue[id], val, t));
-							});
+						for (int s = 0; s < samples; ++s)
+						{
+							const double t = double(s + 1) / double(samples);
+							paramValue[id][s] = customParameters[id].normalisedToReal(herp(normalisedValue[id], val, t));
+						}
 
 						setParameterNormalised(id, val);
 					}
@@ -205,7 +301,7 @@ namespace Kwire2 {
 
 		void** in = getChannelBuffersPointer(processSetup, data.inputs[0]);
 		void** out = getChannelBuffersPointer(processSetup, data.outputs[0]);
-		const uint32 sampleFramesSize = getSampleFramesSizeInBytes(processSetup, data.numSamples);
+		const uint32 sampleFramesSize = getSampleFramesSizeInBytes(processSetup, samples);
 
 		if (data.inputs[0].silenceFlags == getChannelMask(data.inputs[0].numChannels))
 		{
@@ -220,128 +316,9 @@ namespace Kwire2 {
 			data.outputs[0].silenceFlags = 0;
 
 			if (data.symbolicSampleSize == Vst::kSample64)
-			{
-			}
+				processAudio<double>(in, out, samples, processSampleRate);
 			else if (data.symbolicSampleSize == Vst::kSample32)
-			{
-				if (data.outputs[0].numChannels == 2)
-				{
-					if (data.inputs[0].numChannels == 2)
-					{
-						////////////
-						// HP filter and envelope follower
-
-						for (int c = 0; c < 2; ++c)
-						{
-							std::transform(std::execution::unseq, static_cast<float*>(in[c]), static_cast<float*>(in[c]) + data.numSamples, paramValue[inGainId], amplifiedInput[c],
-								[](float input, double gain) { return static_cast<double>(input * gain); });
-
-							// Saturate
-							for (int s = 0; s < data.numSamples; ++s)
-								amplifiedInput[c][s] = distortion[c].process(amplifiedInput[c][s]);
-
-							for (int s = 0; s < data.numSamples; ++s)
-							{
-								const double cutoff = paramValue[crossoverId][s];
-
-								if (cutoff != filter[c].cutoff)
-									filter[c].setCutoff(cutoff);
-
-								filteredInput[c][s] = filter[c].process(amplifiedInput[c][s]);
-							}
-						}
-
-						// Envelope follower
-						// y = 1.0 - ratio * dbtoa(thresholdInDb - atodb(0.5 * (abs(inL) + abs(inR))))
-						std::transform(std::execution::unseq, filteredInput[0], filteredInput[0] + data.numSamples, filteredInput[1], rectifiedSignal,
-							[](double left, double right) { return abs(left) + abs(right); });
-
-						auto& difference = rectifiedSignal;
-
-						std::transform(std::execution::unseq, rectifiedSignal, rectifiedSignal + data.numSamples, paramValue[thresholdId], difference,
-							[](double signal, double threshold) { return min(0.0, threshold - atodb(signal)); });
-
-						auto& attenuation = difference;
-
-						std::transform(std::execution::unseq, difference, difference + data.numSamples, paramValue[ratioId], attenuation,
-							[](double diff, double ratio) { return dbtoa(diff * ratio); });
-
-						// Slide times
-						std::transform(std::execution::unseq, paramValue[attackId], paramValue[attackId] + data.numSamples, attackInSamples,
-							[&data](double attackMs) { return max(1.0, attackMs * 0.001 * data.processContext->sampleRate); });
-
-						std::transform(std::execution::unseq, paramValue[releaseId], paramValue[releaseId] + data.numSamples, releaseInSamples,
-							[&data](double releaseMs) { return max(1.0, releaseMs * 0.001 * data.processContext->sampleRate); });
-
-						// Apply sliding
-						auto& envelope = attenuation;
-
-						for (int s = 0; s < data.numSamples; ++s)
-						{
-							envelope[s] = slide(attenuation[s], envelopeZ1, attenuation[s] >= envelopeZ1 ? releaseInSamples[s] : attackInSamples[s]);
-							envelopeZ1 = envelope[s];
-						}
-
-						// LR -> MS
-						std::transform(std::execution::unseq, amplifiedInput[0], amplifiedInput[0] + data.numSamples, amplifiedInput[1], midSide[0],
-							[](double left, double right) { return (left + right) * 0.5; });
-						std::transform(std::execution::unseq, amplifiedInput[0], amplifiedInput[0] + data.numSamples, amplifiedInput[1], midSide[1],
-							[](double left, double right) { return (left - right) * 0.5; });
-
-						for (int c = 0; c < 2; ++c)
-						{
-							// Attenuated signal
-							// y = in * attenuation
-							std::transform(std::execution::unseq, midSide[c], midSide[c] + data.numSamples, envelope, midSide[c], std::multiplies<double>());
-						}
-
-						// MS -> LR
-						std::transform(std::execution::unseq, midSide[0], midSide[0] + data.numSamples, midSide[1], wetSignal[0], std::plus<double>());
-						std::transform(std::execution::unseq, midSide[0], midSide[0] + data.numSamples, midSide[1], wetSignal[1], std::minus<double>());
-
-						for (int c = 0; c < 2; ++c)
-						{
-							//Mix
-							//y = mix * outGain * out + (1 - mix) * in
-							std::transform(std::execution::unseq, wetSignal[c], wetSignal[c] + data.numSamples, paramValue[outGainId], wetSignal[c], std::multiplies<double>());
-							std::transform(std::execution::unseq, wetSignal[c], wetSignal[c] + data.numSamples, paramValue[mixId], wetSignal[c], std::multiplies<double>());
-
-							// Mix takes the untouched input signal (not affected by input gain)
-							std::transform(std::execution::unseq, (float*)in[c], (float*)in[c] + data.numSamples, paramValue[mixId], (float*)in[c],
-								[](float input, double mix) { return static_cast<float>(input * (1.0 - mix)); });
-
-							std::transform(std::execution::unseq, wetSignal[c], wetSignal[c] + data.numSamples, (float*)in[c], (float*)out[c],
-								[](double wet, float dry) { return static_cast<float>(wet + dry); });
-						}
-					}
-					else if (data.inputs[0].numChannels == 1)
-					{
-						// 1 in
-						std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[inGainId], (float*)out[1],
-							[](float input, double gain) { return input * float(gain); }
-						);
-					}
-				}
-				else if (data.outputs[0].numChannels == 1)
-				{
-					// 1 out
-					if (data.inputs[0].numChannels == 2)
-					{
-						// 2 ins
-						std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, (float*)in[1], (float*)out[0], std::plus<float>());
-						std::transform(std::execution::unseq, (float*)out[0], (float*)out[0] + data.numSamples, paramValue[inGainId], (float*)out[0],
-							[](float input, double gain) { return input * float(gain); }
-						);
-					}
-					else if (data.inputs[0].numChannels == 1)
-					{
-						// 1 in
-						std::transform(std::execution::unseq, (float*)in[0], (float*)in[0] + data.numSamples, paramValue[inGainId], (float*)out[0],
-							[](float input, double gain) { return input * float(gain); }
-						);
-					}
-				}
-			}
+				processAudio<float>(in, out, samples, processSampleRate);
 		}
 
 		return kResultOk;
