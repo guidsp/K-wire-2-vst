@@ -6,6 +6,7 @@
 #include <debugapi.h>
 #include <string>
 #include <stdexcept>
+#include <algorithm>
 
 //=========================================
 // Constants
@@ -42,6 +43,14 @@ inline static T saturate(const T input, const T factor)
 	return input / ((1.0 - factor) * input * input + factor);
 }
 
+template <typename T>
+inline static T cheapTanh(T input)
+{
+	input = std::clamp(input, -3.0, 3.0);
+
+	return input * (27.0 + input * input) / (27.0 + 9.0 * input * input);
+}
+
 // y = z1 + (x - z1) / steps
 template <typename T>
 inline static T slide(const T input, const T prevOutput, const T steps) {
@@ -60,6 +69,8 @@ inline static T herp(const T first, const T second, double i)
 template <typename T>
 inline static T dbtoa(const T dB) 
 {
+	//return pow(10.0, dB / 20.0);
+
 	static constexpr double DB_2_LOG = 0.11512925464970228420089957273422;	// ln( 10 ) / 20
 	return exp(dB * DB_2_LOG);
 }
@@ -67,6 +78,8 @@ inline static T dbtoa(const T dB)
 template <typename T>
 inline static T atodb(const T gain) 
 {
+	//return 20.0 * log10(gain);
+
 	static constexpr double LOG_2_DB = 8.6858896380650365530225783783321;	// 20 / ln( 10 )
 	return max(-120.0, log(gain) * LOG_2_DB);
 }

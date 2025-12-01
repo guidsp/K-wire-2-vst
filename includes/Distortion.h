@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <constants.h>
 
 // https://www.desmos.com/calculator/fagrsqzigt
 
@@ -15,6 +16,9 @@ public:
 		sampleRate = samplerate;
 
 		setDriveTime(driveTime);
+
+		std::fill(factor, factor + MAX_BUFFER_SIZE, 0.0);
+		std::fill(dry, dry + MAX_BUFFER_SIZE, 0.0);
 	}
 
 	void setDriveTime(double ms) 
@@ -23,15 +27,19 @@ public:
 		driveTimeSamps = driveTime * sampleRate * 0.001;
 	}
 
-	inline double process(double input) 
+	inline void process(double* input, int numSamples) 
 	{
-		env0 = slide(abs(input), env0Z1, driveTimeSamps);
-		env0Z1 = env0;
+		for (int s = 0; s < numSamples; ++s)
+		{
+			env0 = slide(abs(input[s]), env0Z1, driveTimeSamps);
+			env0Z1 = env0;
 
-		const double factor = input + min(env0, 1.4);
-		const double dry =  min(1.0, 3.2 * env0);
+			factor[s] = input[s] + min(env0, 1.4);
+			dry[s] = min(1.0, 3.2 * env0);
+		}
 
-		return dry * input + (1.0 - dry) * input * (27.0 + factor * input) / (27.0 + 9.0 * factor * input);
+		for (int s = 0; s < numSamples; ++s)
+			input[s] = dry[s] * input[s] + (1.0 - dry[s]) * input[s] * (27.0 + factor[s] * input[s]) / (27.0 + 9.0 * factor[s] * input[s]);
 	}
 
 private:
@@ -41,4 +49,7 @@ private:
 
 	double env0 = 0,
 		env0Z1 = 0;
+
+	double factor[MAX_BUFFER_SIZE],
+		dry[MAX_BUFFER_SIZE];
 };

@@ -7,7 +7,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET 10.13 CACHE STRING "")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-
+# Set vst3sdk path
 set(vst3sdk_SOURCE_DIR "C:/workspace/externals/vst3sdk")
 if(NOT vst3sdk_SOURCE_DIR)
     message(FATAL_ERROR "Path to VST3 SDK is empty!")
@@ -101,3 +101,10 @@ elseif(SMTG_WIN)
         )
     endif()
 endif(SMTG_MAC)
+
+# clang vectorization remarks for clang-cl in Visual Studio
+target_compile_options(${PROJECT_NAME} PRIVATE
+	"/clang:-Rpass=loop-vectorize"
+	"/clang:-Rpass-missed=loop-vectorize"
+	"/clang:-Rpass-analysis=loop-vectorize"
+)
