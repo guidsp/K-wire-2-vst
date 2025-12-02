@@ -1,6 +1,7 @@
 # K-wire-2-vst
 ## Dependencies
 VST3 SDK - https://github.com/steinbergmedia/vst3sdk
+
 CMake - https://cmake.org/download/
 ## Build
 - Edit the CMakeLists to point at the location of your VST3 SDK folder.
