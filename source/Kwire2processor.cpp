@@ -21,9 +21,14 @@ namespace Kwire2 {
 		setControllerClass(kKwire2ControllerUID);
 
 		std::fill(rectifiedSignal, rectifiedSignal + MAX_BUFFER_SIZE, 0);
+		std::fill(sideEnvelope, sideEnvelope + MAX_BUFFER_SIZE, 0);
 
 		for (int c = 0; c < 2; ++c)
 		{
+			std::fill(filteredInput[c], filteredInput[c] + MAX_BUFFER_SIZE, 0);
+			std::fill(amplifiedInput[c], amplifiedInput[c] + MAX_BUFFER_SIZE, 0);
+			std::fill(wetSignal[c], wetSignal[c] + MAX_BUFFER_SIZE, 0);
+
 			filter[c].setMode(TPTSVF::Highpass);
 			filter[c].setResonance(0);
 		}
@@ -175,13 +180,15 @@ namespace Kwire2 {
 		{
 			envelope[s] = slide(attenuation[s], envelopeZ1, attenuation[s] >= envelopeZ1 ? releaseInSamples[s] : attackInSamples[s]);
 			envelopeZ1 = envelope[s];
+
+			sideEnvelope[s] = slide(attenuation[s], envelopeZ1, attenuation[s] >= envelopeZ1 ? releaseInSamples[s] * 2.0 : attackInSamples[s] * 3.0);
+			sideEnvelopeZ1 = sideEnvelope[s];
 		}
 
-		// Attenuated signal
 		for (int c = 0; c < 2; ++c)
 		{
 			for (int s = 0; s < samples; ++s)
-				wetSignal[c][s] = amplifiedInput[c][s] * envelope[s];
+				wetSignal[c][s] = amplifiedInput[c][s];
 		}
 
 		// LR -> MS
@@ -192,6 +199,23 @@ namespace Kwire2 {
 
 			wetSignal[0][s] = mid;
 			wetSignal[1][s] = side;
+		}
+
+		// Attenuated signal
+		for (int s = 0; s < samples; ++s)
+			wetSignal[0][s] *= envelope[s];
+
+		for (int s = 0; s < samples; ++s)
+			wetSignal[1][s] *= sideEnvelope[s];
+
+		// MS -> LR
+		for (int s = 0; s < samples; ++s)
+		{
+			const double mid = wetSignal[0][s];
+			const double side = wetSignal[1][s];
+
+			wetSignal[0][s] = mid + side;
+			wetSignal[1][s] = mid - side;
 		}
 
 		// Soft-ish clipping
@@ -207,16 +231,6 @@ namespace Kwire2 {
 
 				wetSignal[c][s] = (1.0 - paramValue[clipMixId][s]) * wetSignal[c][s] + paramValue[clipMixId][s] * out;
 			}
-		}
-
-		// MS -> LR
-		for (int s = 0; s < samples; ++s)
-		{
-			const double mid = wetSignal[0][s];
-			const double side = wetSignal[1][s];
-
-			wetSignal[0][s] = mid + side;
-			wetSignal[1][s] = mid - side;
 		}
 
 		// Mix
